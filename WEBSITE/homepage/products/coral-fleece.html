@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coral Fleece 550 GSM | Shuchiva Essentials</title>
+    <style>
+        body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow-x: hidden; }
+        nav { position: relative; width: 100%; padding: 2rem; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; z-index: 100; background-color: #0d1117; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .logo { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+        .logo a { color: #fff; text-decoration: none; }
+        .nav-links { display: flex; align-items: center; }
+        .nav-links a { color: #fff; text-decoration: none; margin-left: 2rem; font-size: 0.9rem; transition: color 0.3s ease; }
+        .nav-links a:hover { color: #4da8da; }
+        .single-product-container { max-width: 1200px; margin: 4rem auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; min-height: 70vh; }
+        .product-gallery { display: flex; flex-direction: column; gap: 1.5rem; }
+        .main-image-display { width: 100%; aspect-ratio: 4/3; background-color: #1c232e; border-radius: 12px; overflow: hidden; border: 2px solid rgba(255, 255, 255, 0.05); transition: border-color 0.3s ease; }
+        .main-image-display img { width: 100%; height: 100%; object-fit: contain; }
+        .thumbnail-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 10px; }
+        .thumb-box { aspect-ratio: 1; background-color: #1c232e; border-radius: 8px; overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: border-color 0.2s ease; }
+        .thumb-box:hover, .thumb-box.active { border-color: #4da8da; }
+        .thumb-box img { width: 100%; height: 100%; object-fit: cover; }
+        .product-details { display: flex; flex-direction: column; }
+        .product-details h1 { font-size: 2rem; font-weight: 300; margin-top: 0; margin-bottom: 1rem; line-height: 1.3; }
+        .option-selector { margin-bottom: 1.5rem; }
+        .option-selector p { margin: 0 0 10px 0; font-weight: 600; color: #a3b3c8; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; }
+        .options-flex { display: flex; flex-wrap: wrap; gap: 10px; }
+        .btn-select { background-color: transparent; border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 0.95rem; transition: all 0.3s ease; font-family: inherit; }
+        .btn-select:hover { border-color: #4da8da; }
+        .btn-select.active { border-color: #4da8da; background-color: rgba(77, 168, 218, 0.15); color: #4da8da; font-weight: 600; }
+        .price-tag { font-size: 2rem; font-weight: 700; color: #4da8da; margin-bottom: 2rem; }
+        .description-box { font-size: 1rem; color: #a3b3c8; line-height: 1.8; margin-bottom: 2rem; background-color: #161b22; padding: 1.5rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .amazon-btn { display: inline-block; width: 100%; padding: 16px; background-color: #4da8da; color: #0d1117; text-align: center; border-radius: 8px; font-size: 1.1rem; font-weight: 700; text-decoration: none; text-transform: uppercase; letter-spacing: 1px; transition: background-color 0.3s ease, transform 0.2s ease; box-sizing: border-box; }
+        .amazon-btn:hover { background-color: #3b8bb8; transform: translateY(-2px); }
+        @media (max-width: 900px) { .single-product-container { grid-template-columns: 1fr; gap: 2rem; } }
+        footer { background-color: #0d1117; color: #6e7d91; text-align: center; padding: 2rem; font-size: 0.9rem; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <!-- Goes up one folder to find index.html in the homepage folder -->
+        <div class="logo"><a href="../index.html">Shuchiva Essentials</a></div>
+        <div class="nav-links">
+            <!-- Navigates back out to the main directory, then down into categories -->
+            <a href="../../categories/hygiene towels/multipurpose cloths/multipurpose cloths.html" style="color: #4da8da;">← Back to Cloths</a>
+        </div>
+    </nav>
+
+    <div class="single-product-container">
+        <div class="product-gallery" id="product-gallery">
+            <div class="main-image-display" id="main-image-container">
+                <img src="" alt="Main View" id="featured-image">
+            </div>
+            <div class="thumbnail-grid" id="thumbnail-grid"></div>
+        </div>
+
+        <div class="product-details">
+            <h1 id="product-page-title">Loading...</h1>
+            
+            <div class="option-selector">
+                <p>Select Size</p>
+                <div class="options-flex">
+                    <button class="btn-select size-btn active" data-size="40x40">40 x 40 cm</button>
+                    <button class="btn-select size-btn" data-size="40x60">40 x 60 cm</button>
+                </div>
+            </div>
+
+            <div class="option-selector">
+                <p>Select Pack Size</p>
+                <div class="options-flex">
+                    <button class="btn-select pack-btn active" data-pack="2pc">2 Pc Pack</button>
+                    <button class="btn-select pack-btn" data-pack="3pc">3 Pc Pack</button>
+                    <button class="btn-select pack-btn" data-pack="4pc">4 Pc Pack</button>
+                </div>
+            </div>
+
+            <div class="price-tag" id="price-tag">₹...</div>
+            
+            <div class="description-box">
+                <p><strong>Perfect for:</strong> Multipurpose Car & Bike Cleaning</p>
+                <p><strong>Colors Available:</strong> Assorted Colours / Multicolour</p>  
+                <p><strong>GSM:</strong> 550 GSM</p>
+                <p><strong>Finish:</strong> Edgeless Ultrasonic Cut, Scratch-Free Quick Drying</p>
+                <p><strong>Size:</strong> <span id="display-size-text">...</span></p>
+            </div>
+
+            <a href="#" target="_blank" class="amazon-btn" id="amazon-btn">Buy on Amazon</a>
+        </div>
+    </div>
+
+    <footer>&copy; 2026 Shuchiva Essentials. A brand by Nand Lal Ram Charan Dass, Dehradun.</footer>
+
+    <!-- 1. Load the shared data file -->
+    <script src="shared-data.js"></script>
+
+    <!-- 2. Run interaction logic using shared data -->
+    <script>
+        const activeProductData = allProducts.coralFleece;
+
+        document.getElementById('product-page-title').textContent = activeProductData.productName;
+
+        let currentSizeKey = '40x40';
+        let currentPackKey = '2pc';
+
+        const sizeBtns = document.querySelectorAll('.size-btn');
+        const packBtns = document.querySelectorAll('.pack-btn');
+        const featuredImage = document.getElementById('featured-image');
+        const thumbnailGrid = document.getElementById('thumbnail-grid');
+        const priceTag = document.getElementById('price-tag');
+        const amazonBtn = document.getElementById('amazon-btn');
+        const sizeTextDisplay = document.getElementById('display-size-text');
+
+        // SMART FALLBACK FUNCTION: Tries .png -> .jpg -> .jpeg automatically
+        function addImageFallback(imgElement) {
+            imgElement.onerror = function() {
+                if (this.src.includes('.png')) {
+                    this.src = this.src.replace('.png', '.jpg');
+                } else if (this.src.includes('.jpg')) {
+                    this.src = this.src.replace('.jpg', '.jpeg');
+                } else {
+                    this.onerror = null; 
+                }
+            };
+        }
+
+        function renderProduct() {
+            const sizeData = activeProductData.sizes[currentSizeKey];
+            const packData = sizeData.packs[currentPackKey];
+
+            priceTag.textContent = packData.price;
+            amazonBtn.href = packData.link;
+            sizeTextDisplay.textContent = sizeData.sizeText;
+            
+            featuredImage.src = `${sizeData.folderName}/${packData.mainImg}`;
+            addImageFallback(featuredImage);
+
+            thumbnailGrid.innerHTML = '';
+
+            sizeData.thumbs.forEach((thumbFile, index) => {
+                const thumbPath = `${sizeData.folderName}/${thumbFile}`;
+                const div = document.createElement('div');
+                div.className = 'thumb-box' + (index === 0 ? ' active' : '');
+                div.setAttribute('data-full', thumbPath);
+
+                const img = document.createElement('img');
+                img.src = thumbPath;
+                addImageFallback(img);
+                
+                div.appendChild(img);
+                thumbnailGrid.appendChild(div);
+
+                div.addEventListener('click', () => {
+                    document.querySelectorAll('.thumb-box').forEach(t => t.classList.remove('active'));
+                    div.classList.add('active');
+                    
+                    featuredImage.src = div.getAttribute('data-full');
+                    addImageFallback(featuredImage);
+                });
+            });
+        }
+
+        sizeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                sizeBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentSizeKey = btn.getAttribute('data-size');
+                renderProduct();
+            });
+        });
+
+        packBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                packBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentPackKey = btn.getAttribute('data-pack');
+                renderProduct();
+            });
+        });
+
+        renderProduct();
+    </script>
+</body>
+</html>

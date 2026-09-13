@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Settings | Shuchiva Essentials</title>
+    <style>
+        body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, sans-serif; }
+        .dashboard-wrapper { max-width: 600px; margin: 4rem auto; padding: 0 2rem; }
+        .page-header { margin-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; }
+        .page-header h1 { font-size: 2.2rem; font-weight: 300; margin: 0 0 5px 0; }
+        
+        .settings-card { background-color: #161b22; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 2rem; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; color: #a3b3c8; font-size: 0.9rem; }
+        .form-group input { width: 100%; padding: 12px; box-sizing: border-box; background-color: #0d1117; border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 6px; font-size: 1rem; transition: border-color 0.2s; }
+        .form-group input:focus { outline: none; border-color: #4da8da; }
+        .form-group input:disabled { color: #6e7d91; border-color: rgba(255,255,255,0.05); cursor: not-allowed; }
+        
+        .save-btn { padding: 12px 24px; background-color: #4da8da; color: #0d1117; border: none; border-radius: 6px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: 0.2s; }
+        .save-btn:hover { background-color: #3a8ebd; }
+        
+        #message-box { margin-top: 1rem; font-size: 0.9rem; min-height: 20px; }
+    </style>
+</head>
+<body>
+
+    <site-toolbar root-path="../"></site-toolbar>
+
+    <div class="dashboard-wrapper">
+        <div class="page-header">
+            <h1>Account Settings</h1>
+            <p style="color: #a3b3c8; margin: 0;">Manage your profile details.</p>
+        </div>
+        
+        <div class="settings-card">
+            <form id="profile-form">
+                <div class="form-group">
+                    <label>Display Name</label>
+                    <!-- Disabled attribute removed! -->
+                    <input type="text" id="user-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Registered Account (Email)</label>
+                    <!-- Email remains disabled for OTP security -->
+                    <input type="text" id="user-email" disabled value="Secured via OTP">
+                </div>
+                
+                <button type="submit" class="save-btn" id="save-btn">Save Changes</button>
+                <div id="message-box"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 1. Load existing data on page load
+        const userNameInput = document.getElementById('user-name');
+        userNameInput.value = localStorage.getItem('shuchiva_user_name') || 'Customer';
+
+        // 2. Handle the save button click
+        document.getElementById('profile-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const token = localStorage.getItem('shuchiva_token');
+            const newName = userNameInput.value.trim();
+            const messageBox = document.getElementById('message-box');
+            const saveBtn = document.getElementById('save-btn');
+
+            if (!token) return alert('Please log in first.');
+
+            saveBtn.textContent = 'Saving...';
+            saveBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/user/profile', {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ name: newName })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Update the local storage so the toolbar catches the new name immediately
+                    localStorage.setItem('shuchiva_user_name', data.user.name);
+                    
+                    messageBox.style.color = '#4da8da';
+                    messageBox.textContent = 'Profile updated successfully!';
+                    
+                    // Reload page after 1 second to update the top right greeting
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    messageBox.style.color = '#ff6b6b';
+                    messageBox.textContent = data.error || 'Update failed.';
+                }
+            } catch (error) {
+                messageBox.style.color = '#ff6b6b';
+                messageBox.textContent = 'Server error. Please try again.';
+            } finally {
+                saveBtn.textContent = 'Save Changes';
+                saveBtn.disabled = false;
+            }
+        });
+    </script>
+    <script src="../homepage/toolbar.js"></script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders | Shuchiva Essentials</title>
+    <style>
+        body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, sans-serif; }
+        .dashboard-wrapper { max-width: 1000px; margin: 4rem auto; padding: 0 2rem; }
+        .page-header { margin-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; }
+        .page-header h1 { font-size: 2.2rem; font-weight: 300; margin: 0 0 5px 0; }
+        
+        .order-card { background-color: #161b22; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .order-header { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 1rem; margin-bottom: 1rem; color: #a3b3c8; font-size: 0.95rem; }
+        .order-status { color: #4da8da; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .order-item { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1rem; }
+        .item-details { color: #fff; }
+        .item-meta { color: #8b9eb7; font-size: 0.85rem; }
+        
+        .order-total { text-align: right; margin-top: 1rem; font-size: 1.2rem; font-weight: 700; color: #fff; }
+        .empty-state { text-align: center; color: #a3b3c8; padding: 3rem 0; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+    <site-toolbar root-path="../"></site-toolbar>
+
+    <div class="dashboard-wrapper">
+        <div class="page-header">
+            <h1>Order History</h1>
+            <p style="color: #a3b3c8; margin: 0;">View your past purchases and track current shipments.</p>
+        </div>
+        
+        <div id="orders-container">
+            <h3 style="text-align: center;">Loading your orders...</h3>
+        </div>
+    </div>
+
+    <script>
+        async function loadOrders() {
+            const token = localStorage.getItem('shuchiva_token');
+            const container = document.getElementById('orders-container');
+
+            if (!token) {
+                window.location.href = '../auth/login.html';
+                return;
+            }
+
+            try {
+                // Fetch orders and catalog concurrently
+                const [ordersRes, catalogRes] = await Promise.all([
+                    fetch('/api/orders', { headers: { 'Authorization': `Bearer ${token}` } }),
+                    fetch('/api/products')
+                ]);
+
+                const orders = await ordersRes.json();
+                const catalog = await catalogRes.json();
+
+                if (orders.length === 0) {
+                    container.innerHTML = `<div class="empty-state">You haven't placed any orders yet. <br><br><a href="../homepage/index.html" style="color: #4da8da;">Start shopping</a></div>`;
+                    return;
+                }
+
+                let html = '';
+                orders.forEach(order => {
+                    const date = new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+                    
+                    let itemsHtml = '';
+                    order.items.forEach(item => {
+                        const productDetails = catalog[item.productId];
+                        const name = productDetails ? productDetails.productName : 'Shuchiva Microfiber Towel';
+                        itemsHtml += `
+                            <div class="order-item">
+                                <div class="item-details">
+                                    ${name} <br>
+                                    <span class="item-meta">Size: ${item.sizeKey} | Pack: ${item.packKey} | Qty: ${item.quantity}</span>
+                                </div>
+                                <div>${item.price}</div>
+                            </div>
+                        `;
+                    });
+
+                    html += `
+                        <div class="order-card">
+                            <div class="order-header">
+                                <div>
+                                    <strong>Order Placed:</strong> ${date} <br>
+                                    <strong>Order ID:</strong> ${order.razorpayOrderId}
+                                </div>
+                                <div class="order-status">${order.status}</div>
+                            </div>
+                            ${itemsHtml}
+                            <div class="order-total">Total Paid: ₹${order.totalAmount}</div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+
+            } catch (error) {
+                container.innerHTML = `<div class="empty-state" style="color: #ff6b6b;">Failed to load order history.</div>`;
+            }
+        }
+
+        loadOrders();
+    </script>
+    <script src="../homepage/toolbar.js"></script>
+</body>
+</html>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shuchiva Essentials | Premium Home Utility</title>
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            background-color: #0d1117;
+            color: #ffffff;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* --- NAVIGATION --- */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 2rem;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+            background: linear-gradient(to bottom, rgba(13,17,23,0.9), transparent);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+        
+        .logo a {
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #fff;
+            text-decoration: none;
+            margin-left: 2rem;
+            font-size: 0.9rem;
+            transition: color 0.3s ease;
+            display: inline-block;
+            padding: 10px 0;
+        }
+
+        .nav-links a:hover { 
+            color: #4da8da; 
+        }
+
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: rgba(13, 17, 23, 0.95);
+            min-width: 220px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5);
+            z-index: 100;
+            top: 100%;
+            left: 2rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            padding: 10px 0;
+        }
+
+        .dropdown-content a {
+            color: white;
+            padding: 12px 20px;
+            text-decoration: none;
+            display: block;
+            margin-left: 0;
+            font-size: 0.85rem;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .dropdown-content a:hover {
+            background-color: rgba(77, 168, 218, 0.15);
+            color: #4da8da;
+        }
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        /* --- HERO & VIDEO --- */
+        #interactive-container {
+            height: 100vh;
+            width: 100%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #0d1117;
+            overflow: hidden;
+            cursor: default;
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 90vw;
+            max-width: 1400px;
+            height: 90vh;
+            border-radius: 12px;
+        }
+
+        #hero-video {
+            width: 100%;
+            height: 100%;
+            border-radius: inherit;
+            object-fit: cover;
+            background-color: #1c232e;
+            filter: blur(15px) brightness(0.4);
+            transition: filter 0.8s ease;
+        }
+
+        #hero-video.active {
+            filter: blur(0px) brightness(1);
+        }
+
+        #mute-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            z-index: 150; 
+            background-color: rgba(13, 17, 23, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+            transition: opacity 0.5s ease, background-color 0.3s ease;
+        }
+
+        #mute-btn.show { opacity: 1; pointer-events: auto; }
+        #mute-btn:hover { background-color: rgba(77, 168, 218, 0.5); }
+
+        #start-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            transition: opacity 0.5s ease;
+            cursor: pointer;
+        }
+
+        .spherical-btn {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background-color: rgba(13, 17, 23, 0.6);
+            border: 2px solid #4da8da;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            line-height: 1.4;
+            padding: 10px;
+            pointer-events: none; 
+        }
+
+        #start-overlay:hover .spherical-btn {
+            transform: scale(1.05);
+            background-color: rgba(77, 168, 218, 0.2);
+            box-shadow: 0 0 20px rgba(77, 168, 218, 0.4);
+        }
+
+        .hidden { opacity: 0; pointer-events: none; }
+
+        /* --- DEBUG BANNER --- */
+        #debug-banner {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 200;
+            background: rgba(200, 30, 30, 0.95);
+            color: #fff;
+            padding: 16px 24px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            max-width: 80vw;
+            display: none;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+        }
+        #debug-banner.show { display: block; }
+
+        /* --- CATALOG PLACEHOLDER SECTION --- */
+        .catalog-section {
+            height: 80vh;
+            background-color: #161b22;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .catalog-section h2 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 1rem;
+        }
+
+        .catalog-section p {
+            color: #a3b3c8;
+        }
+
+        footer {
+            background-color: #0d1117;
+            color: #6e7d91;
+            text-align: center;
+            padding: 2rem;
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <site-toolbar root-path="../"></site-toolbar>
+
+    <div id="interactive-container">
+        <div id="debug-banner"></div>
+        <div id="start-overlay">
+            <button class="spherical-btn" id="start-btn">Click<br>to Explore</button>
+        </div>
+        <div class="video-wrapper">
+            <video id="hero-video" loop playsinline preload="auto" muted>
+                <source src="video/hero.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            <button id="mute-btn" title="Toggle Sound">🔇</button>
+        </div>
+    </div>
+
+    <div class="catalog-section" id="about">
+        <h2>Explore The Rest of the Collection</h2>
+        <p>Use the navigation menu above to view our product categories.</p>
+    </div>
+
+    <footer>
+        &copy; 2026 Shuchiva Essentials. A brand by Nand Lal Ram Charan Dass, Dehradun.
+    </footer>
+
+    <script>
+        // --- VIDEO LOGIC ---
+        const video = document.getElementById('hero-video');
+        const debugBanner = document.getElementById('debug-banner');
+        const overlay = document.getElementById('start-overlay');
+        const muteBtn = document.getElementById('mute-btn');
+
+        function showDebugBanner(message) {
+            debugBanner.textContent = message;
+            debugBanner.classList.add('show');
+        }
+
+        function updateMuteIcon() {
+            muteBtn.textContent = video.muted ? '🔇' : '🔊';
+        }
+
+        overlay.addEventListener('click', () => {
+            overlay.classList.add('hidden');
+            video.classList.add('active');
+            muteBtn.classList.add('show');
+            updateMuteIcon();
+
+            video.currentTime = 0;
+            const playPromise = video.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(err => {
+                    console.error('Video play() failed:', err);
+                    showDebugBanner("VIDEO PLAYBACK ERROR: " + err.message);
+                });
+            }
+        });
+
+        muteBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            video.muted = !video.muted;
+            updateMuteIcon();
+        });
+
+        video.addEventListener('error', () => {
+            showDebugBanner("VIDEO LOADING ERROR: Make sure 'hero.mp4' is inside the 'video' folder.");
+        });
+    </script>
+    
+    <script src="toolbar.js"></script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multipurpose Cloths | Shuchiva Essentials</title>
+    <style>
+        body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; overflow-x: hidden; }
+        
+        /* --- NAVIGATION --- */
+        nav { 
+            position: relative; 
+            width: 100%; 
+            padding: 2rem; 
+            box-sizing: border-box; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            z-index: 100; 
+            background-color: #0d1117; 
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05); 
+        }
+        .logo { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+        .logo a { color: #fff; text-decoration: none; }
+        .nav-links { display: flex; align-items: center; }
+        .nav-links a { color: #fff; text-decoration: none; margin-left: 2rem; font-size: 0.9rem; transition: color 0.3s ease; display: inline-block; padding: 10px 0; }
+        .nav-links a:hover { color: #4da8da; }
+        .dropdown { position: relative; display: inline-block; }
+        .dropdown-content { display: none; position: absolute; background-color: rgba(13, 17, 23, 0.95); min-width: 220px; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.5); z-index: 100; top: 100%; left: 2rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(5px); padding: 10px 0; }
+        .dropdown-content a { color: white; padding: 12px 20px; text-decoration: none; display: block; margin-left: 0; font-size: 0.85rem; transition: background-color 0.3s ease, color 0.3s ease; }
+        .dropdown-content a:hover { background-color: rgba(77, 168, 218, 0.15); color: #4da8da; }
+        .dropdown:hover .dropdown-content { display: block; }
+
+        /* --- PRODUCT CATALOG --- */
+        .product-section { padding: 4rem 2rem; background-color: #161b22; min-height: 80vh; }
+        .section-title { text-align: center; font-size: 2.5rem; font-weight: 300; margin-bottom: 3rem; color: #fff; letter-spacing: 1px; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2.5rem; max-width: 1200px; margin: 0 auto; }
+        .product-card { background-color: #0d1117; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 1.5rem; transition: transform 0.3s ease, box-shadow 0.3s ease; display: flex; flex-direction: column; }
+        .product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-color: rgba(77, 168, 218, 0.3); }
+        .main-img-wrap { width: 100%; aspect-ratio: 4/3; background-color: #1c232e; border-radius: 8px; overflow: hidden; margin-bottom: 1rem; }
+        .main-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+        .thumb-row { display: flex; gap: 10px; margin-bottom: 1.5rem; }
+        .thumb-wrap { width: 60px; height: 60px; border-radius: 6px; overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: border-color 0.2s ease; background-color: #1c232e; }
+        .thumb-wrap.active, .thumb-wrap:hover { border-color: #4da8da; }
+        .thumb-wrap img { width: 100%; height: 100%; object-fit: cover; }
+        .prod-info { display: flex; flex-direction: column; flex-grow: 1; }
+        .prod-info h3 { margin: 0 0 0.5rem 0; font-size: 1.2rem; font-weight: 500; line-height: 1.4; }
+        .prod-desc { font-size: 0.85rem; color: #a3b3c8; margin: 0 0 1rem 0; line-height: 1.5; }
+        .prod-price { display: flex; align-items: center; gap: 10px; margin-bottom: 1.5rem; margin-top: auto; }
+        .new-price { font-size: 1.4rem; font-weight: 700; color: #4da8da; }
+        .add-btn { width: 100%; padding: 12px; background-color: transparent; border: 1px solid #4da8da; color: #4da8da; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px; display: block; text-align: center; text-decoration: none; box-sizing: border-box; }
+        .add-btn:hover { background-color: #4da8da; color: #0d1117; }
+        
+        footer { background-color: #0d1117; color: #6e7d91; text-align: center; padding: 2rem; font-size: 0.9rem; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+    </style>
+</head>
+<body>
+
+    <!-- Shared Navigation Toolbar Component (pointing 3 levels up to root) -->
+    <site-toolbar root-path="../../../"></site-toolbar>
+
+    <section class="product-section">
+        <h2 class="section-title">Multipurpose Cloths</h2>
+        <div class="product-grid" id="dynamic-catalog">
+            <!-- Products are injected here dynamically from shared-data.js -->
+        </div>
+    </section>
+
+    <footer>&copy; 2026 Shuchiva Essentials. A brand by Nand Lal Ram Charan Dass, Dehradun.</footer>
+
+    <!-- Load the shared product database -->
+    <script src="../../../homepage/products/shared-data.js"></script>
+
+    <script>
+        const catalogContainer = document.getElementById('dynamic-catalog');
+        const basePath = "../../../homepage/products";
+
+        // Loop through all products in your shared-data.js file
+        for (const [productId, productData] of Object.entries(allProducts)) {
+            const firstSizeKey = Object.keys(productData.sizes)[0];
+            const defaultSize = productData.sizes[firstSizeKey];
+            const firstPackKey = Object.keys(defaultSize.packs)[0];
+            const mainImgFile = defaultSize.packs[firstPackKey].mainImg;
+            
+            const folderPath = `${basePath}/${defaultSize.folderName}`;
+            const mainImgPath = `${folderPath}/${mainImgFile}`;
+            const thumb1Path = `${folderPath}/${defaultSize.thumbs[1] || mainImgFile}`;
+            const thumb2Path = `${folderPath}/${defaultSize.thumbs[2] || mainImgFile}`;
+
+            const cardHTML = `
+                <div class="product-card">
+                    <div class="main-img-wrap">
+                        <img src="${mainImgPath}" alt="${productData.productName}" class="main-prod-img">
+                    </div>
+                    <div class="thumb-row">
+                        <div class="thumb-wrap active" data-img="${mainImgPath}"><img src="${mainImgPath}"></div>
+                        <div class="thumb-wrap" data-img="${thumb1Path}"><img src="${thumb1Path}"></div>
+                        <div class="thumb-wrap" data-img="${thumb2Path}"><img src="${thumb2Path}"></div>
+                    </div>
+                    <div class="prod-info">
+                        <h3><a href="${basePath}/product.html?id=${productId}" style="color: #fff; text-decoration: none;">${productData.productName}</a></h3>
+                        <p class="prod-desc">${productData.catalogDescription}<br><strong>${productData.catalogSizesText}</strong></p>
+                        <div class="prod-price">
+                            <span class="new-price">${productData.startingPrice}</span>
+                        </div>
+                        <a href="${basePath}/product.html?id=${productId}" class="add-btn">View Options</a>
+                    </div>
+                </div>
+            `;
+            
+            catalogContainer.innerHTML += cardHTML;
+        }
+
+        // Apply Gallery Logic & Image Fallbacks to all generated cards
+        const productCards = document.querySelectorAll('.product-card');
+        productCards.forEach(card => {
+            const mainImg = card.querySelector('.main-prod-img');
+            const thumbs = card.querySelectorAll('.thumb-wrap');
+            
+            function handleImgError(img) {
+                img.onerror = function() {
+                    if (this.src.includes('.png')) {
+                        this.src = this.src.replace('.png', '.jpg');
+                    } else if (this.src.includes('.jpg')) {
+                        this.src = this.src.replace('.jpg', '.jpeg');
+                    } else {
+                        this.onerror = null; 
+                    }
+                };
+            }
+            
+            handleImgError(mainImg);
+            
+            thumbs.forEach(thumb => {
+                const img = thumb.querySelector('img');
+                handleImgError(img);
+
+                thumb.addEventListener('click', () => {
+                    if (thumb.getAttribute('data-img')) {
+                        thumbs.forEach(t => t.classList.remove('active'));
+                        thumb.classList.add('active');
+                        mainImg.src = thumb.getAttribute('data-img');
+                    }
+                });
+            });
+        });
+    </script>
+
+    <!-- Load the shared toolbar component script -->
+    <script src="../../../homepage/toolbar.js"></script>
+</body>
+</html>

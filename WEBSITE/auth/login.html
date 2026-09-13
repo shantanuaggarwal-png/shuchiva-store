@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Shuchiva Essentials</title>
+    <style>
+        body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, sans-serif; overflow-x: hidden; }
+        .auth-container { max-width: 400px; margin: 5rem auto; padding: 2.5rem; background-color: #161b22; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; }
+        .auth-title { font-size: 2rem; font-weight: 300; margin-bottom: 0.5rem; }
+        .auth-subtitle { color: #a3b3c8; font-size: 0.95rem; margin-bottom: 2rem; }
+        
+        .form-group { margin-bottom: 1.5rem; text-align: left; }
+        .form-group input { width: 100%; padding: 14px; box-sizing: border-box; background-color: #0d1117; border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; border-radius: 6px; font-size: 1rem; text-align: center; letter-spacing: 1px;}
+        .form-group input:focus { outline: none; border-color: #4da8da; }
+        
+        .auth-btn { width: 100%; padding: 14px; background-color: #4da8da; color: #0d1117; border: none; border-radius: 6px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: 0.2s; margin-top: 1rem; }
+        .auth-btn:hover { background-color: #3a8ebd; }
+        
+        #message-box { text-align: center; margin-top: 1.5rem; font-size: 0.9rem; min-height: 20px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <site-toolbar root-path="../"></site-toolbar>
+
+    <div class="auth-container">
+        <h2 class="auth-title">Welcome</h2>
+        <p class="auth-subtitle" id="auth-subtitle">Enter your email to receive a secure login code.</p>
+
+        <!-- Step 1: Request OTP -->
+        <form id="step-1-form">
+            <div class="form-group">
+                <input type="email" id="email" required placeholder="name@example.com">
+            </div>
+            <button type="submit" class="auth-btn" id="send-btn">Send Login Code</button>
+        </form>
+
+        <!-- Step 2: Verify OTP (Hidden by default) -->
+        <form id="step-2-form" class="hidden">
+            <div class="form-group">
+                <input type="text" id="otp" required placeholder="• • • • • •" maxlength="6" pattern="[0-9]{6}">
+            </div>
+            <button type="submit" class="auth-btn" id="verify-btn">Verify & Log In</button>
+            <button type="button" id="back-btn" style="background: none; border: none; color: #a3b3c8; margin-top: 15px; cursor: pointer; text-decoration: underline;">Use a different email</button>
+        </form>
+
+        <p id="message-box"></p>
+    </div>
+
+    <script>
+        const step1Form = document.getElementById('step-1-form');
+        const step2Form = document.getElementById('step-2-form');
+        const messageBox = document.getElementById('message-box');
+        const subtitle = document.getElementById('auth-subtitle');
+        const emailInput = document.getElementById('email');
+        const otpInput = document.getElementById('otp');
+
+        // Handle Sending OTP
+        step1Form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = emailInput.value.trim();
+            const sendBtn = document.getElementById('send-btn');
+            
+            sendBtn.textContent = 'Sending...';
+            sendBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/auth/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    messageBox.textContent = '';
+                    step1Form.classList.add('hidden');
+                    step2Form.classList.remove('hidden');
+                    subtitle.innerHTML = `Code sent to <strong>${email}</strong>`;
+                } else {
+                    messageBox.style.color = '#ff6b6b';
+                    messageBox.textContent = data.error || 'Failed to send OTP.';
+                }
+            } catch (error) {
+                messageBox.style.color = '#ff6b6b';
+                messageBox.textContent = 'Server error. Please try again.';
+            } finally {
+                sendBtn.textContent = 'Send Login Code';
+                sendBtn.disabled = false;
+            }
+        });
+
+        // Handle Verifying OTP
+        step2Form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = emailInput.value.trim();
+            const otp = otpInput.value.trim();
+            const verifyBtn = document.getElementById('verify-btn');
+
+            verifyBtn.textContent = 'Verifying...';
+            verifyBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/auth/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, otp })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Save session data exactly as you did before
+                    localStorage.setItem('shuchiva_token', data.token);
+                    localStorage.setItem('shuchiva_user_name', data.user.name);
+                    
+                    messageBox.style.color = '#4da8da';
+                    messageBox.textContent = 'Login successful! Redirecting...';
+                    
+                    setTimeout(() => window.location.href = '../homepage/index.html', 1500);
+                } else {
+                    messageBox.style.color = '#ff6b6b';
+                    messageBox.textContent = data.error || 'Invalid code.';
+                }
+            } catch (error) {
+                messageBox.style.color = '#ff6b6b';
+                messageBox.textContent = 'Server error. Please try again.';
+            } finally {
+                verifyBtn.textContent = 'Verify & Log In';
+                verifyBtn.disabled = false;
+            }
+        });
+
+        // Allow user to go back and edit their email
+        document.getElementById('back-btn').addEventListener('click', () => {
+            step2Form.classList.add('hidden');
+            step1Form.classList.remove('hidden');
+            subtitle.textContent = 'Enter your email to receive a secure login code.';
+            otpInput.value = '';
+            messageBox.textContent = '';
+        });
+    </script>
+
+    <script src="../homepage/toolbar.js"></script>
+</body>
+</html>
