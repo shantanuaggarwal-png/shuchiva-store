@@ -8,10 +8,9 @@ class SiteToolbar extends HTMLElement {
         let authHTML = '';
         if (token) {
             // User IS logged in
-         authHTML = `
+            authHTML = `
                 <div class="dropdown" style="margin-left: 1.5rem;">
                     <a href="#" class="dropbtn" style="color: #4da8da; font-weight: 600; text-decoration: none;">Hi, ${userName} &#9662;</a>
-                    <!-- ADDED 'right: 0; left: auto;' BELOW -->
                     <div class="dropdown-content" style="min-width: 160px; right: 0; left: auto;">
                         <a href="${root}account/orders.html">My Orders</a>
                         <a href="${root}account/settings.html">Account Settings</a>
@@ -63,7 +62,7 @@ class SiteToolbar extends HTMLElement {
                 
                 <a href="${root}cart/cart.html" id="cart-nav-btn" style="margin-left: 1.5rem; display: flex; align-items: center; gap: 5px; color: #fff; text-decoration: none;">
                     <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4m-.4 8l1.35 5.4A2 2 0 008.3 20h7.4a2 2 0 001.95-1.56L19 13H7z"></path><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle></svg>
-                    Cart (...)
+                    Cart (<span id="cart-qty-badge">0</span>)
                 </a>
 
                 ${authHTML}
@@ -81,34 +80,42 @@ class SiteToolbar extends HTMLElement {
                     window.location.reload();
                 });
             }
-            this.updateCartCount(token);
-        } else {
-            this.querySelector('#cart-nav-btn').innerHTML = `
-                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4m-.4 8l1.35 5.4A2 2 0 008.3 20h7.4a2 2 0 001.95-1.56L19 13H7z"></path><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle></svg>
-                Cart (0)
-            `;
         }
+        
+        // Trigger the cart update as soon as the toolbar loads
+        this.updateCartQuantity(token);
     }
 
-    async updateCartCount(token) {
+    async updateCartQuantity(token) {
+        const cartBadge = this.querySelector('#cart-qty-badge');
+        if (!cartBadge) return; 
+
+        if (!token) {
+            cartBadge.textContent = '0';
+            return;
+        }
+
         try {
-            const response = await fetch('http://localhost:3000/api/cart', {
+            // Using a relative path so it dynamically matches localhost or Render
+            const response = await fetch('/api/cart', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
+            
             if (response.ok) {
                 const cartData = await response.json();
-                const totalItems = cartData.items ? cartData.items.reduce((sum, item) => sum + item.quantity, 0) : 0;
+                let totalQty = 0;
                 
-                const cartBtn = this.querySelector('#cart-nav-btn');
-                if (cartBtn) {
-                    cartBtn.innerHTML = `
-                        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4m-.4 8l1.35 5.4A2 2 0 008.3 20h7.4a2 2 0 001.95-1.56L19 13H7z"></path><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle></svg>
-                        Cart (${totalItems})
-                    `;
+                // Sum up the quantities of all items currently in the database cart
+                if (cartData.items && cartData.items.length > 0) {
+                    cartData.items.forEach(item => {
+                        totalQty += item.quantity;
+                    });
                 }
+                cartBadge.textContent = totalQty;
             }
         } catch (error) {
-            console.error("Failed to load cart count", error);
+            console.error('Error fetching cart quantity:', error);
+            cartBadge.textContent = '!';
         }
     }
 }
