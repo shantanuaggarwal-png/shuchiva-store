@@ -186,7 +186,6 @@
                             });
                         });
 
-                        // NEW: Add to Cart functionality
                         document.getElementById('add-to-cart-btn').addEventListener('click', async () => {
                             const token = localStorage.getItem('shuchiva_token');
                             const msgBox = document.getElementById('cart-message');
@@ -218,18 +217,21 @@
                                 });
 
                                 if (response.ok) {
-    msgBox.style.color = '#4da8da';
-    msgBox.textContent = 'Added to Cart successfully!';
-    
-    // NEW: Tell the toolbar to fetch the live count immediately
-    const toolbar = document.querySelector('site-toolbar');
-    if (toolbar && typeof toolbar.updateCartCount === 'function') {
-        toolbar.updateCartCount(token);
-    }
+                                    msgBox.style.color = '#4da8da';
+                                    msgBox.textContent = 'Added to Cart successfully!';
+                                    
+                                    // 1. Broadcast signal to toolbar
+                                    window.dispatchEvent(new Event('cartUpdated'));
 
-    // Hide message after 3 seconds
-    setTimeout(() => { msgBox.style.display = 'none'; }, 3000);
-}else {
+                                    // 2. Direct command failsafe
+                                    const toolbar = document.querySelector('site-toolbar');
+                                    if (toolbar && typeof toolbar.updateCartQuantity === 'function') {
+                                        toolbar.updateCartQuantity(token);
+                                    }
+
+                                    // Hide message after 3 seconds
+                                    setTimeout(() => { msgBox.style.display = 'none'; }, 3000);
+                                } else {
                                     const data = await response.json();
                                     msgBox.style.color = '#ff6b6b';
                                     msgBox.textContent = data.error || 'Failed to add to cart.';
