@@ -82,8 +82,13 @@ class SiteToolbar extends HTMLElement {
             }
         }
         
-        // Trigger the cart update as soon as the toolbar loads
+        // Initial fetch when page loads
         this.updateCartQuantity(token);
+
+        // Listen for live cart update events from other pages/scripts
+        window.addEventListener('cartUpdated', () => {
+            this.updateCartQuantity(token);
+        });
     }
 
     async updateCartQuantity(token) {
@@ -96,7 +101,6 @@ class SiteToolbar extends HTMLElement {
         }
 
         try {
-            // Using a relative path so it dynamically matches localhost or Render
             const response = await fetch('/api/cart', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
@@ -105,7 +109,6 @@ class SiteToolbar extends HTMLElement {
                 const cartData = await response.json();
                 let totalQty = 0;
                 
-                // Sum up the quantities of all items currently in the database cart
                 if (cartData.items && cartData.items.length > 0) {
                     cartData.items.forEach(item => {
                         totalQty += item.quantity;
