@@ -74,9 +74,9 @@
 
                 if (!cartData.items || cartData.items.length === 0) {
                     contentDiv.innerHTML = `<div class="empty-cart">Your cart is currently empty.</div>`;
-                    if (document.querySelector('site-toolbar').updateCartCount) {
-                        document.querySelector('site-toolbar').updateCartCount(token);
-                    }
+                    
+                    // Broadcast signal to toolbar
+                    window.dispatchEvent(new Event('cartUpdated'));
                     return;
                 }
 
@@ -129,9 +129,8 @@
                     </div>
                 `;
 
-                if (document.querySelector('site-toolbar').updateCartCount) {
-                    document.querySelector('site-toolbar').updateCartCount(token);
-                }
+                // Broadcast signal to toolbar
+                window.dispatchEvent(new Event('cartUpdated'));
 
             } catch (error) {
                 console.error("Cart Error:", error);
