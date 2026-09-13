@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
 const Razorpay = require('razorpay'); 
 const crypto = require('crypto');     
 const path = require('path');
@@ -20,7 +19,6 @@ app.use(cors());
 app.use(express.json());
 
 // --- SERVE STATIC FRONTEND FILES ---
-// This serves your public website folder directly from the backend server
 app.use(express.static(path.join(__dirname, '../WEBSITE')));
 
 // Database connection securely loaded from environment variables
@@ -50,15 +48,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 
-// --- USER AUTHENTICATION ROUTES (OTP SYSTEM) ---
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
-
+// --- USER AUTHENTICATION ROUTES (OTP SYSTEM VIA BREVO HTTP) ---
 app.post('/api/auth/send-otp', async (req, res) => {
     try {
         const { email } = req.body;
@@ -76,14 +66,31 @@ app.post('/api/auth/send-otp', async (req, res) => {
         user.otpExpires = otpExpires;
         await user.save();
 
-        const mailOptions = {
-            from: `"Shuchiva Essentials" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: 'Your Shuchiva Essentials Login Code',
-            html: `<h3>Your login code is: <strong>${otp}</strong></h3><p>This code will expire in 5 minutes. Do not share it with anyone.</p>`
-        };
+        // Send Email using Brevo HTTP API (Bypasses Render SMTP Block via Port 443)
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'api-key': process.env.BREVO_API_KEY,
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({
+                sender: {
+                    name: "Shuchiva Essentials",
+                    email: process.env.EMAIL_USER // This must be verified in your Brevo account
+                },
+                to: [{ email: email }],
+                subject: 'Your Shuchiva Essentials Login Code',
+                htmlContent: `<h3>Your login code is: <strong>${otp}</strong></h3><p>This code will expire in 5 minutes. Do not share it with anyone.</p>`
+            })
+        });
 
-        await transporter.sendMail(mailOptions);
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Brevo API Error:', errorData);
+            return res.status(500).json({ error: "Failed to send OTP. Please try again." });
+        }
+
         res.status(200).json({ message: "OTP sent successfully to your email." });
 
     } catch (error) {
