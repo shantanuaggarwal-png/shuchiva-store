@@ -11,8 +11,8 @@ const path = require('path');
 // Import Schemas
 const Product = require('./models/Product');
 const User = require('./models/User');
-const Cart = require('./models/Cart');
-const Order = require('./models/Order');
+const Cart = require('./models/cart');
+const Order = require('./models/order');
 
 const app = express();
 
