@@ -16,7 +16,13 @@ const Order = require('./models/order');
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+
+// Raw body parser for webhooks combined with standard JSON parsing
+app.use(express.json({
+    verify: (req, res, buf) => {
+        req.rawBody = buf;
+    }
+}));
 
 // --- SERVE STATIC FRONTEND FILES ---
 app.use(express.static(path.join(__dirname, '../WEBSITE')));
@@ -281,6 +287,77 @@ app.post('/api/payment/verify', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Order Saving Error:', error);
         res.status(500).json({ error: "Failed to process order." });
+    }
+});
+
+app.post('/api/webhook/razorpay', async (req, res) => {
+    // 1. Get the secret from your .env file
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET; 
+    const signature = req.headers['x-razorpay-signature'];
+
+    try {
+        // 2. Verify the signature using the raw body
+        const expectedSignature = crypto
+            .createHmac('sha256', webhookSecret)
+            .update(req.rawBody)
+            .digest('hex');
+
+        if (signature !== expectedSignature) {
+            return res.status(400).json({ error: 'Invalid signature' });
+        }
+
+        // 3. Process the event if it's a successful payment
+        const event = req.body.event;
+
+        if (event === 'order.paid') {
+            const paymentEntity = req.body.payload.payment.entity;
+            const orderEntity = req.body.payload.order.entity;
+            
+            const orderId = paymentEntity.order_id;
+            const paymentId = paymentEntity.id;
+            
+            // Extract userId from the receipt field you set in create-order
+            const userId = orderEntity.receipt.replace('receipt_', '');
+
+            // Idempotency: Check if the frontend /verify route already saved this order
+            const existingOrder = await Order.findOne({ razorpayOrderId: orderId });
+            
+            if (!existingOrder) {
+                // Fallback triggered: The frontend missed it, so we save it here
+                const cart = await Cart.findOne({ userId: userId });
+                
+                if (cart && cart.items.length > 0) {
+                    let totalAmount = 0;
+                    cart.items.forEach(item => {
+                        const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
+                        totalAmount += numericalPrice * item.quantity;
+                    });
+
+                    const newOrder = new Order({
+                        userId: userId,
+                        items: cart.items,
+                        razorpayPaymentId: paymentId,
+                        razorpayOrderId: orderId,
+                        totalAmount: totalAmount
+                    });
+                    
+                    await newOrder.save();
+
+                    // Empty the user's cart
+                    cart.items = [];
+                    await cart.save();
+                    
+                    console.log(`Webhook fallback successful: Order saved for user ${userId}`);
+                }
+            }
+        }
+
+        // Always return a 200 OK so Razorpay knows you received it
+        res.status(200).json({ status: 'ok' });
+
+    } catch (error) {
+        console.error('Webhook Error:', error);
+        res.status(500).json({ error: 'Webhook processing failed' });
     }
 });
 
