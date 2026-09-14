@@ -69,7 +69,9 @@
             const allImages = document.querySelectorAll('img');
             allImages.forEach(img => {
                 img.onerror = function() {
-                    if (this.src.includes('.png')) {
+                    if (this.src.includes('.webp')) {
+                        this.src = this.src.replace('.webp', '.png');
+                    } else if (this.src.includes('.png')) {
                         this.src = this.src.replace('.png', '.jpg');
                     } else if (this.src.includes('.jpg')) {
                         this.src = this.src.replace('.jpg', '.jpeg');
@@ -118,13 +120,13 @@
                         let thumbsHTML = sizeData.thumbs.map((thumbFile, index) => {
                             const tPath = `${folderPath}/${thumbFile}`;
                             const isActive = index === 0 ? 'active' : '';
-                            return `<div class="thumb-box ${isActive}" data-img="${tPath}"><img src="${tPath}" alt="Thumbnail"></div>`;
+                            return `<div class="thumb-box ${isActive}" data-img="${tPath}"><img src="${tPath}" alt="Thumbnail" loading="lazy"></div>`;
                         }).join('');
 
                         wrapper.innerHTML = `
                             <div class="gallery-col">
                                 <div class="main-img-box">
-                                    <img src="${mainImgPath}" id="main-product-image" alt="${product.productName}">
+                                    <img src="${mainImgPath}" id="main-product-image" alt="${product.productName}" loading="lazy">
                                 </div>
                                 <div class="thumb-grid" id="thumbnail-container">
                                     ${thumbsHTML}

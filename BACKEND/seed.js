@@ -46,11 +46,11 @@ const allProducts = {
                 folderName: "40x40 CORAL FLEECE 550 GSM",
                 sizeText: "40 cm x 40 cm",
                 packs: {
-                    "2pc": { price: "₹242", link: "https://www.amazon.in/dp/B0HFYKT3RB?th=1", mainImg: "main-2pc.png" },
-                    "3pc": { price: "₹300", link: "https://www.amazon.in/dp/B0HFYNFYCM?th=1", mainImg: "main-3pc.png" },
-                    "4pc": { price: "₹359", link: "https://www.amazon.in/dp/B0HFYB1H1Q?th=1", mainImg: "main-4pc.png" }
+                    "2pc": { price: "₹242", link: "https://www.amazon.in/dp/B0HFYKT3RB?th=1", mainImg: "main-2pc.webp" },
+                    "3pc": { price: "₹300", link: "https://www.amazon.in/dp/B0HFYNFYCM?th=1", mainImg: "main-3pc.webp" },
+                    "4pc": { price: "₹359", link: "https://www.amazon.in/dp/B0HFYB1H1Q?th=1", mainImg: "main-4pc.webp" }
                 },
-                thumbs: ["main-2pc.png", "thumb1.png", "thumb2.png", "thumb3.png", "thumb4.png", "thumb5.png", "thumb6.png", "thumb7.png", "thumb8.png", "thumb9.png", "thumb10.png", "thumb11.png"]
+                thumbs: ["main-2pc.webp", "thumb1.webp", "thumb2.webp", "thumb3.webp", "thumb4.webp", "thumb5.webp", "thumb6.webp", "thumb7.webp", "thumb8.webp", "thumb9.webp", "thumb10.webp", "thumb11.webp"]
             },
             "40x60": {
                 folderName: "40X60 CORAL FLEECE 550 GSM",
