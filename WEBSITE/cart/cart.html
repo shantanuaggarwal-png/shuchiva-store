@@ -18,6 +18,11 @@
         .summary-section { flex: 0 1 380px; background-color: #161b22; padding: 2rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); position: sticky; top: 2rem; }
         
         .cart-item { display: flex; align-items: center; justify-content: space-between; padding: 1.5rem; background-color: #161b22; border-radius: 8px; margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.05); }
+        
+        /* NEW: Styles to group the image and the text together */
+        .item-main { display: flex; gap: 1.5rem; align-items: center; }
+        .cart-item-img { width: 90px; height: 90px; object-fit: contain; border-radius: 8px; background-color: #1c232e; border: 1px solid rgba(255, 255, 255, 0.1); flex-shrink: 0; }
+        
         .item-details { display: flex; flex-direction: column; gap: 6px; }
         .item-title { font-size: 1.1rem; font-weight: 600; color: #fff; }
         .item-meta { color: #8b9eb7; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -88,6 +93,17 @@
                     const productDetails = catalog[item.productId];
                     const name = productDetails ? productDetails.productName : 'Unknown Product';
                     
+                    // Extract image path dynamically from the catalog
+                    let imgPath = '';
+                    if (productDetails && productDetails.sizes && productDetails.sizes[item.sizeKey]) {
+                        const sizeData = productDetails.sizes[item.sizeKey];
+                        const packData = sizeData.packs[item.packKey];
+                        if (packData && packData.mainImg) {
+                            imgPath = `../homepage/products/${sizeData.folderName}/${packData.mainImg}`;
+                        }
+                    }
+                    const imgTag = imgPath ? `<img src="${imgPath}" alt="${name}" class="cart-item-img" loading="lazy">` : `<div class="cart-item-img"></div>`;
+                    
                     // Convert "₹230" to integer 230 for calculation
                     const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10) || 0;
                     totalAmount += (numericalPrice * item.quantity);
@@ -95,10 +111,13 @@
                     
                     itemsHTML += `
                         <div class="cart-item">
-                            <div class="item-details">
-                                <span class="item-title">${name}</span>
-                                <span class="item-meta">Size: ${item.sizeKey} | Pack: ${item.packKey}</span>
-                                <span class="item-price">${item.price} (Qty: ${item.quantity})</span>
+                            <div class="item-main">
+                                ${imgTag}
+                                <div class="item-details">
+                                    <span class="item-title">${name}</span>
+                                    <span class="item-meta">Size: ${item.sizeKey} | Pack: ${item.packKey}</span>
+                                    <span class="item-price">${item.price} (Qty: ${item.quantity})</span>
+                                </div>
                             </div>
                             <div class="item-actions">
                                 <button class="remove-btn" onclick="removeItem('${item.productId}', '${item.sizeKey}', '${item.packKey}')">Remove Item</button>
@@ -131,6 +150,22 @@
 
                 // Broadcast signal to toolbar
                 window.dispatchEvent(new Event('cartUpdated'));
+
+                // Handle image fallbacks natively inside the cart
+                const cartImages = document.querySelectorAll('.cart-item-img');
+                cartImages.forEach(img => {
+                    img.onerror = function() {
+                        if (this.src.includes('.webp')) {
+                            this.src = this.src.replace('.webp', '.png');
+                        } else if (this.src.includes('.png')) {
+                            this.src = this.src.replace('.png', '.jpg');
+                        } else if (this.src.includes('.jpg')) {
+                            this.src = this.src.replace('.jpg', '.jpeg');
+                        } else {
+                            this.onerror = null; 
+                        }
+                    };
+                });
 
             } catch (error) {
                 console.error("Cart Error:", error);
