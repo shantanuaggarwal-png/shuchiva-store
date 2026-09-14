@@ -21,6 +21,11 @@ app.use(express.json());
 // --- SERVE STATIC FRONTEND FILES ---
 app.use(express.static(path.join(__dirname, '../WEBSITE')));
 
+// Redirect root domain to the homepage
+app.get('/', (req, res) => {
+    res.redirect('/homepage/index.html');
+});
+
 // Database connection securely loaded from environment variables
 const mongoURI = process.env.MONGO_URI;
 
