@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const Razorpay = require('razorpay'); 
 const crypto = require('crypto');     
 const path = require('path');
+const axios = require('axios'); // Added for Shiprocket API requests
 
 // Import Schemas
 const Product = require('./models/Product');
@@ -88,7 +89,7 @@ app.post('/api/auth/send-otp', async (req, res) => {
             body: JSON.stringify({
                 sender: {
                     name: "Shuchiva Essentials",
-                    email: process.env.EMAIL_USER // This must be verified in your Brevo account
+                    email: process.env.EMAIL_USER 
                 },
                 to: [{ email: email }],
                 subject: 'Your Shuchiva Essentials Login Code',
@@ -249,54 +250,103 @@ app.post('/api/payment/create-order', authenticateToken, async (req, res) => {
     }
 });
 
+// Automated Verification & Shiprocket Courier Assignment Route
 app.post('/api/payment/verify', authenticateToken, async (req, res) => {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, shippingAddress } = req.body;
         const sign = razorpay_order_id + "|" + razorpay_payment_id;
         
         const expectedSign = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
                                    .update(sign.toString())
                                    .digest("hex");
 
-        if (razorpay_signature === expectedSign) {
-            const cart = await Cart.findOne({ userId: req.user.userId });
-            if (!cart || cart.items.length === 0) return res.status(400).json({ error: "Cart is empty" });
-
-            let totalAmount = 0;
-            cart.items.forEach(item => {
-                const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
-                totalAmount += numericalPrice * item.quantity;
-            });
-
-            const newOrder = new Order({
-                userId: req.user.userId,
-                items: cart.items,
-                razorpayPaymentId: razorpay_payment_id,
-                razorpayOrderId: razorpay_order_id,
-                totalAmount: totalAmount
-            });
-            await newOrder.save();
-
-            cart.items = [];
-            await cart.save();
-
-            res.json({ message: "Payment verified successfully, order saved!" });
-        } else {
-            res.status(400).json({ error: "Invalid payment signature" });
+        if (razorpay_signature !== expectedSign) {
+            return res.status(400).json({ error: "Invalid payment signature" });
         }
+
+        // 1. Get the user's cart
+        const cart = await Cart.findOne({ userId: req.user.userId });
+        if (!cart || cart.items.length === 0) return res.status(400).json({ error: "Cart is empty" });
+
+        let totalAmount = 0;
+        const orderItems = cart.items.map(item => {
+            const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
+            totalAmount += (numericalPrice * item.quantity);
+            return {
+                name: `Shuchiva Product - Size: ${item.sizeKey} Pack: ${item.packKey}`,
+                sku: item.productId,
+                units: item.quantity,
+                selling_price: numericalPrice,
+                discount: 0,
+                tax: 0,
+                hsn: ""
+            };
+        });
+
+        // 2. Authenticate with Shiprocket
+        const shiprocketAuth = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', {
+            email: process.env.SHIPROCKET_EMAIL,
+            password: process.env.SHIPROCKET_PASSWORD
+        });
+        const shiprocketToken = shiprocketAuth.data.token;
+
+        // 3. Push Ad-Hoc Order to Shiprocket
+        const shiprocketPayload = {
+            order_id: `SHU_${razorpay_order_id}`, 
+            order_date: new Date().toISOString(),
+            pickup_location: "work", // Configured perfectly to match your dashboard
+            billing_customer_name: shippingAddress.fullName,
+            billing_last_name: "",
+            billing_address: shippingAddress.address,
+            billing_city: shippingAddress.city,
+            billing_pincode: shippingAddress.pincode,
+            billing_state: shippingAddress.state,
+            billing_country: "India",
+            billing_email: req.user.email || "customer@shuchiva.com",
+            billing_phone: shippingAddress.phone,
+            shipping_is_billing: true,
+            order_items: orderItems,
+            payment_method: "Prepaid",
+            sub_total: totalAmount,
+            length: 10, breadth: 10, height: 10, weight: 0.5 // Default package metrics
+        };
+
+        const shiprocketOrder = await axios.post('https://apiv2.shiprocket.in/v1/external/orders/create/adhoc', shiprocketPayload, {
+            headers: { 'Authorization': `Bearer ${shiprocketToken}` }
+        });
+
+        // 4. Save the permanent Order to MongoDB
+        const newOrder = new Order({
+            userId: req.user.userId,
+            items: cart.items,
+            razorpayPaymentId: razorpay_payment_id,
+            razorpayOrderId: razorpay_order_id,
+            totalAmount: totalAmount,
+            shippingAddress: shippingAddress,
+            shiprocketShipmentId: shiprocketOrder.data.shipment_id,
+            shiprocketOrderId: shiprocketOrder.data.order_id,
+            status: 'Processing'
+        });
+        await newOrder.save();
+
+        // 5. Clear the cart
+        cart.items = [];
+        await cart.save();
+
+        res.json({ message: "Payment verified, order saved, and pushed to Shiprocket!" });
+
     } catch (error) {
-        console.error('Order Saving Error:', error);
-        res.status(500).json({ error: "Failed to process order." });
+        console.error('Checkout Pipeline Error:', error.response ? error.response.data : error);
+        res.status(500).json({ error: "Failed to process the final order." });
     }
 });
 
+// Razorpay Webhook Fallback
 app.post('/api/webhook/razorpay', async (req, res) => {
-    // 1. Get the secret from your .env file
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET; 
     const signature = req.headers['x-razorpay-signature'];
 
     try {
-        // 2. Verify the signature using the raw body
         const expectedSignature = crypto
             .createHmac('sha256', webhookSecret)
             .update(req.rawBody)
@@ -306,7 +356,6 @@ app.post('/api/webhook/razorpay', async (req, res) => {
             return res.status(400).json({ error: 'Invalid signature' });
         }
 
-        // 3. Process the event if it's a successful payment
         const event = req.body.event;
 
         if (event === 'order.paid') {
@@ -315,15 +364,11 @@ app.post('/api/webhook/razorpay', async (req, res) => {
             
             const orderId = paymentEntity.order_id;
             const paymentId = paymentEntity.id;
-            
-            // Extract userId from the receipt field you set in create-order
             const userId = orderEntity.receipt.replace('receipt_', '');
 
-            // Idempotency: Check if the frontend /verify route already saved this order
             const existingOrder = await Order.findOne({ razorpayOrderId: orderId });
             
             if (!existingOrder) {
-                // Fallback triggered: The frontend missed it, so we save it here
                 const cart = await Cart.findOne({ userId: userId });
                 
                 if (cart && cart.items.length > 0) {
@@ -333,17 +378,19 @@ app.post('/api/webhook/razorpay', async (req, res) => {
                         totalAmount += numericalPrice * item.quantity;
                     });
 
+                    // Webhooks cannot push to Shiprocket natively without the address,
+                    // so it simply saves the transaction to prevent money loss
                     const newOrder = new Order({
                         userId: userId,
                         items: cart.items,
                         razorpayPaymentId: paymentId,
                         razorpayOrderId: orderId,
-                        totalAmount: totalAmount
+                        totalAmount: totalAmount,
+                        shippingAddress: { address: "Webhook Fallback - Awaiting Address" } 
                     });
                     
                     await newOrder.save();
 
-                    // Empty the user's cart
                     cart.items = [];
                     await cart.save();
                     
@@ -352,7 +399,6 @@ app.post('/api/webhook/razorpay', async (req, res) => {
             }
         }
 
-        // Always return a 200 OK so Razorpay knows you received it
         res.status(200).json({ status: 'ok' });
 
     } catch (error) {

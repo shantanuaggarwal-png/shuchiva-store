@@ -19,6 +19,12 @@ const orderSchema = new mongoose.Schema({
     razorpayPaymentId: { type: String, required: true },
     razorpayOrderId: { type: String, required: true },
     totalAmount: { type: Number, required: true },
+    
+    // Delivery and Tracking Data
+    shippingAddress: { type: Object, required: true },
+    shiprocketShipmentId: { type: String },
+    shiprocketOrderId: { type: String },
+    
     status: { type: String, default: 'Processing' } // e.g., Processing, Shipped, Delivered
 }, { 
     timestamps: true 
