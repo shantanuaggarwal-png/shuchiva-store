@@ -18,7 +18,7 @@ const allProducts = {
                 folderName: "40x60 WEFT 400 GSM",
                 sizeText: "40 cm x 60 cm",
                 packs: {
-                    "2pc": { price: "₹230", link: "https://www.amazon.in/SHUCHIVA-ESSENTIALS-Multipurpose-400-GSM/dp/B0HHS7T2H5...", mainImg: "main-2pc.webp" },
+                    "2pc": { price: "₹1", link: "https://www.amazon.in/SHUCHIVA-ESSENTIALS-Multipurpose-400-GSM/dp/B0HHS7T2H5...", mainImg: "main-2pc.webp" },
                     "3pc": { price: "₹284", link: "https://www.amazon.in/SHUCHIVA-ESSENTIALS-Multipurpose-400-GSM/dp/B0HHSDH4F5...", mainImg: "main-3pc.webp" },
                     "4pc": { price: "₹338", link: "https://www.amazon.in/SHUCHIVA-ESSENTIALS-Multipurpose-400-GSM/dp/B0HHSBMX5B...", mainImg: "main-4pc.webp" }
                 },

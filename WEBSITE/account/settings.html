@@ -10,17 +10,25 @@
         .page-header { margin-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; }
         .page-header h1 { font-size: 2.2rem; font-weight: 300; margin: 0 0 5px 0; }
         
-        .settings-card { background-color: #161b22; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 2rem; }
+        .settings-card { background-color: #161b22; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 2rem; margin-bottom: 2rem; }
+        .card-title { font-size: 1.3rem; font-weight: 500; margin-top: 0; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        
         .form-group { margin-bottom: 1.5rem; }
         .form-group label { display: block; margin-bottom: 0.5rem; color: #a3b3c8; font-size: 0.9rem; }
         .form-group input { width: 100%; padding: 12px; box-sizing: border-box; background-color: #0d1117; border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 6px; font-size: 1rem; transition: border-color 0.2s; }
         .form-group input:focus { outline: none; border-color: #4da8da; }
         .form-group input:disabled { color: #6e7d91; border-color: rgba(255,255,255,0.05); cursor: not-allowed; }
+        .form-row-2 { display: flex; gap: 10px; }
+        .form-row-2 .form-group { flex: 1; }
         
         .save-btn { padding: 12px 24px; background-color: #4da8da; color: #0d1117; border: none; border-radius: 6px; font-size: 1rem; font-weight: 700; cursor: pointer; transition: 0.2s; }
         .save-btn:hover { background-color: #3a8ebd; }
         
         #message-box { margin-top: 1rem; font-size: 0.9rem; min-height: 20px; }
+
+        /* Saved Address Styling */
+        .saved-address-block { background-color: #0d1117; border: 1px solid rgba(255,255,255,0.1); padding: 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.95rem; color: #a3b3c8; }
+        .saved-address-block strong { color: #fff; display: block; margin-bottom: 5px; font-size: 1.05rem; }
     </style>
 </head>
 <body>
@@ -30,38 +38,72 @@
     <div class="dashboard-wrapper">
         <div class="page-header">
             <h1>Account Settings</h1>
-            <p style="color: #a3b3c8; margin: 0;">Manage your profile details.</p>
+            <p style="color: #a3b3c8; margin: 0;">Manage your profile details and saved addresses.</p>
         </div>
         
+        <!-- Profile Form -->
         <div class="settings-card">
+            <h3 class="card-title">Profile Details</h3>
             <form id="profile-form">
                 <div class="form-group">
                     <label>Display Name</label>
-                    <!-- Disabled attribute removed! -->
                     <input type="text" id="user-name" required>
                 </div>
                 <div class="form-group">
                     <label>Registered Account (Email)</label>
-                    <!-- Email remains disabled for OTP security -->
                     <input type="text" id="user-email" disabled value="Secured via OTP">
                 </div>
-                
                 <button type="submit" class="save-btn" id="save-btn">Save Changes</button>
                 <div id="message-box"></div>
+            </form>
+        </div>
+
+        <!-- Address Book Form -->
+        <div class="settings-card">
+            <h3 class="card-title">Address Book</h3>
+            <div id="address-list">Loading addresses...</div>
+            
+            <h4 style="margin-top: 2rem; color: #fff;">Add New Address</h4>
+            <form id="address-form">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="addr-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Phone Number (10 digits)</label>
+                    <input type="tel" id="addr-phone" maxlength="10" required>
+                </div>
+                <div class="form-group">
+                    <label>Street Address / House No.</label>
+                    <input type="text" id="addr-street" required>
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label>City</label>
+                        <input type="text" id="addr-city" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Pincode</label>
+                        <input type="text" id="addr-pin" maxlength="6" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>State</label>
+                    <input type="text" id="addr-state" required>
+                </div>
+                <button type="submit" class="save-btn">Save Address</button>
             </form>
         </div>
     </div>
 
     <script>
-        // 1. Load existing data on page load
+        const token = localStorage.getItem('shuchiva_token');
         const userNameInput = document.getElementById('user-name');
         userNameInput.value = localStorage.getItem('shuchiva_user_name') || 'Customer';
 
-        // 2. Handle the save button click
+        // --- PROFILE UPDATE LOGIC ---
         document.getElementById('profile-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
-            const token = localStorage.getItem('shuchiva_token');
             const newName = userNameInput.value.trim();
             const messageBox = document.getElementById('message-box');
             const saveBtn = document.getElementById('save-btn');
@@ -84,13 +126,9 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Update the local storage so the toolbar catches the new name immediately
                     localStorage.setItem('shuchiva_user_name', data.user.name);
-                    
                     messageBox.style.color = '#4da8da';
                     messageBox.textContent = 'Profile updated successfully!';
-                    
-                    // Reload page after 1 second to update the top right greeting
                     setTimeout(() => window.location.reload(), 1000);
                 } else {
                     messageBox.style.color = '#ff6b6b';
@@ -104,6 +142,66 @@
                 saveBtn.disabled = false;
             }
         });
+
+        // --- ADDRESS BOOK LOGIC ---
+        async function loadAddresses() {
+            if (!token) return;
+            try {
+                const res = await fetch('/api/user/addresses', { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await res.json();
+                
+                const listDiv = document.getElementById('address-list');
+                if (data.addresses && data.addresses.length > 0) {
+                    listDiv.innerHTML = data.addresses.map(addr => `
+                        <div class="saved-address-block">
+                            <strong>${addr.fullName}</strong>
+                            ${addr.address}<br>
+                            ${addr.city}, ${addr.state} - ${addr.pincode}<br>
+                            Phone: ${addr.phone}
+                        </div>
+                    `).join('');
+                } else {
+                    listDiv.innerHTML = '<p>No saved addresses found.</p>';
+                }
+            } catch (error) {
+                console.error('Failed to fetch addresses:', error);
+            }
+        }
+
+        document.getElementById('address-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!token) return alert('Please log in first.');
+
+            const payload = {
+                fullName: document.getElementById('addr-name').value.trim(),
+                phone: document.getElementById('addr-phone').value.trim(),
+                address: document.getElementById('addr-street').value.trim(),
+                city: document.getElementById('addr-city').value.trim(),
+                pincode: document.getElementById('addr-pin').value.trim(),
+                state: document.getElementById('addr-state').value.trim()
+            };
+
+            try {
+                const res = await fetch('/api/user/addresses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    alert('Address saved successfully!');
+                    document.getElementById('address-form').reset();
+                    loadAddresses();
+                } else {
+                    alert('Failed to save address.');
+                }
+            } catch (error) {
+                console.error('Error saving address:', error);
+            }
+        });
+
+        // Load existing addresses on page load
+        loadAddresses();
     </script>
     <script src="../homepage/toolbar.js"></script>
 </body>

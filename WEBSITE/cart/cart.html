@@ -39,8 +39,8 @@
         .shipping-title { font-size: 1.2rem; font-weight: 500; margin: 0 0 1rem 0; color: #fff; }
         .form-field { margin-bottom: 0.85rem; }
         .form-field label { display: block; font-size: 0.85rem; color: #a3b3c8; margin-bottom: 4px; }
-        .form-field input { width: 100%; padding: 10px 12px; box-sizing: border-box; background-color: #0d1117; border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; font-size: 0.95rem; }
-        .form-field input:focus { outline: none; border-color: #4da8da; }
+        .form-field input, .form-field select { width: 100%; padding: 10px 12px; box-sizing: border-box; background-color: #0d1117; border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; font-size: 0.95rem; }
+        .form-field input:focus, .form-field select:focus { outline: none; border-color: #4da8da; }
         .form-row-2 { display: flex; gap: 10px; }
         .form-row-2 .form-field { flex: 1; }
         
@@ -153,6 +153,15 @@
                         <!-- Delivery Address Form Required for Shiprocket -->
                         <div class="shipping-section">
                             <h4 class="shipping-title">Delivery Address</h4>
+                            
+                            <!-- Saved Address Selector -->
+                            <div class="form-field" id="saved-addresses-dropdown" style="display: none; margin-bottom: 1.5rem;">
+                                <label for="address-selector" style="color: #4da8da; font-weight: bold;">Select a Saved Address</label>
+                                <select id="address-selector" onchange="fillSavedAddress(this.value)">
+                                    <option value="">-- Choose an address or enter a new one below --</option>
+                                </select>
+                            </div>
+
                             <div class="form-field">
                                 <label for="ship-name">Full Name *</label>
                                 <input type="text" id="ship-name" placeholder="Receiver full name" value="${savedName}" required>
@@ -309,6 +318,64 @@
                 alert('There was a problem initiating checkout.');
             }
         }
+
+        // --- NEW ADDRESS BOOK LOGIC ---
+        let customerAddresses = [];
+
+        async function fetchSavedAddresses() {
+            const token = localStorage.getItem('shuchiva_token');
+            if (!token) return;
+
+            try {
+                const res = await fetch('/api/user/addresses', { headers: { 'Authorization': `Bearer ${token}` } });
+                const data = await res.json();
+                
+                if (data.addresses && data.addresses.length > 0) {
+                    customerAddresses = data.addresses;
+                    const dropdown = document.getElementById('saved-addresses-dropdown');
+                    const selector = document.getElementById('address-selector');
+                    
+                    // Show the dropdown if addresses exist
+                    dropdown.style.display = 'block';
+                    
+                    // Clear previous options except default
+                    selector.innerHTML = '<option value="">-- Choose an address or enter a new one below --</option>';
+                    
+                    data.addresses.forEach((addr, index) => {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = `${addr.fullName} - ${addr.city} (${addr.pincode})`;
+                        selector.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to load saved addresses.");
+            }
+        }
+
+        function fillSavedAddress(index) {
+            if (index === "") {
+                // Clear fields if they select the default option
+                document.getElementById('ship-name').value = localStorage.getItem('shuchiva_user_name') || '';
+                document.getElementById('ship-phone').value = '';
+                document.getElementById('ship-address').value = '';
+                document.getElementById('ship-city').value = '';
+                document.getElementById('ship-pincode').value = '';
+                document.getElementById('ship-state').value = '';
+                return;
+            }
+            
+            const addr = customerAddresses[index];
+            document.getElementById('ship-name').value = addr.fullName;
+            document.getElementById('ship-phone').value = addr.phone;
+            document.getElementById('ship-address').value = addr.address;
+            document.getElementById('ship-city').value = addr.city;
+            document.getElementById('ship-pincode').value = addr.pincode;
+            document.getElementById('ship-state').value = addr.state;
+        }
+
+        // Trigger address fetch when cart finishes rendering
+        window.addEventListener('cartUpdated', fetchSavedAddresses);
 
         loadCart();
     </script>

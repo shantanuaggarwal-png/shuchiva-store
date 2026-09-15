@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const Razorpay = require('razorpay'); 
 const crypto = require('crypto');     
 const path = require('path');
-const axios = require('axios'); // Added for Shiprocket API requests
+const axios = require('axios'); 
 
 // Import Schemas
 const Product = require('./models/Product');
@@ -78,7 +78,6 @@ app.post('/api/auth/send-otp', async (req, res) => {
         user.otpExpires = otpExpires;
         await user.save();
 
-        // Send Email using Brevo HTTP API (Bypasses Render SMTP Block via Port 443)
         const response = await fetch('https://api.brevo.com/v3/smtp/email', {
             method: 'POST',
             headers: {
@@ -147,7 +146,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 });
 
 
-// --- USER PROFILE ROUTES ---
+// --- USER PROFILE & ADDRESS BOOK ROUTES ---
 app.put('/api/user/profile', authenticateToken, async (req, res) => {
     try {
         const { name } = req.body;
@@ -165,6 +164,40 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Profile Update Error:', error);
         res.status(500).json({ error: "Failed to update profile." });
+    }
+});
+
+// Fetch saved addresses
+app.get('/api/user/addresses', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.userId);
+        if (!user) return res.status(404).json({ error: "User not found" });
+        
+        res.json({ addresses: user.savedAddresses || [] });
+    } catch (error) {
+        console.error('Fetch Addresses Error:', error);
+        res.status(500).json({ error: "Failed to fetch addresses." });
+    }
+});
+
+// Add a new address
+app.post('/api/user/addresses', authenticateToken, async (req, res) => {
+    try {
+        const { fullName, phone, address, city, state, pincode } = req.body;
+        
+        if (!fullName || !phone || !address || !city || !state || !pincode) {
+            return res.status(400).json({ error: "All address fields are required." });
+        }
+
+        const user = await User.findById(req.user.userId);
+        
+        user.savedAddresses.push({ fullName, phone, address, city, state, pincode });
+        await user.save();
+
+        res.status(200).json({ message: "Address saved successfully!", addresses: user.savedAddresses });
+    } catch (error) {
+        console.error('Save Address Error:', error);
+        res.status(500).json({ error: "Failed to save address." });
     }
 });
 
@@ -264,7 +297,6 @@ app.post('/api/payment/verify', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: "Invalid payment signature" });
         }
 
-        // 1. Get the user's cart
         const cart = await Cart.findOne({ userId: req.user.userId });
         if (!cart || cart.items.length === 0) return res.status(400).json({ error: "Cart is empty" });
 
@@ -283,18 +315,16 @@ app.post('/api/payment/verify', authenticateToken, async (req, res) => {
             };
         });
 
-        // 2. Authenticate with Shiprocket
         const shiprocketAuth = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', {
             email: process.env.SHIPROCKET_EMAIL,
             password: process.env.SHIPROCKET_PASSWORD
         });
         const shiprocketToken = shiprocketAuth.data.token;
 
-        // 3. Push Ad-Hoc Order to Shiprocket
         const shiprocketPayload = {
             order_id: `SHU_${razorpay_order_id}`, 
             order_date: new Date().toISOString(),
-            pickup_location: "work", // Configured perfectly to match your dashboard
+            pickup_location: "work", 
             billing_customer_name: shippingAddress.fullName,
             billing_last_name: "",
             billing_address: shippingAddress.address,
@@ -308,14 +338,13 @@ app.post('/api/payment/verify', authenticateToken, async (req, res) => {
             order_items: orderItems,
             payment_method: "Prepaid",
             sub_total: totalAmount,
-            length: 10, breadth: 10, height: 10, weight: 0.5 // Default package metrics
+            length: 10, breadth: 10, height: 10, weight: 0.5 
         };
 
         const shiprocketOrder = await axios.post('https://apiv2.shiprocket.in/v1/external/orders/create/adhoc', shiprocketPayload, {
             headers: { 'Authorization': `Bearer ${shiprocketToken}` }
         });
 
-        // 4. Save the permanent Order to MongoDB
         const newOrder = new Order({
             userId: req.user.userId,
             items: cart.items,
@@ -329,7 +358,6 @@ app.post('/api/payment/verify', authenticateToken, async (req, res) => {
         });
         await newOrder.save();
 
-        // 5. Clear the cart
         cart.items = [];
         await cart.save();
 
@@ -378,8 +406,6 @@ app.post('/api/webhook/razorpay', async (req, res) => {
                         totalAmount += numericalPrice * item.quantity;
                     });
 
-                    // Webhooks cannot push to Shiprocket natively without the address,
-                    // so it simply saves the transaction to prevent money loss
                     const newOrder = new Order({
                         userId: userId,
                         items: cart.items,
