@@ -3,8 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
-const Razorpay = require('razorpay'); 
-const crypto = require('crypto');     
 const path = require('path');
 const axios = require('axios'); 
 
@@ -253,183 +251,39 @@ app.delete('/api/cart/remove', authenticateToken, async (req, res) => {
 });
 
 
-// --- RAZORPAY PAYMENT & ORDER ROUTES ---
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET
-});
-
-app.post('/api/payment/create-order', authenticateToken, async (req, res) => {
+// --- FASTRR CHECKOUT ROUTE ---
+app.post('/api/checkout/fastrr', authenticateToken, async (req, res) => {
     try {
         const cart = await Cart.findOne({ userId: req.user.userId });
         if (!cart || cart.items.length === 0) return res.status(400).json({ error: "Cart is empty" });
 
-        let totalAmount = 0;
-        cart.items.forEach(item => {
-            const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
-            totalAmount += numericalPrice * item.quantity;
-        });
+        const user = await User.findById(req.user.userId);
 
-        const options = {
-            amount: totalAmount * 100, 
-            currency: "INR",
-            receipt: `receipt_${req.user.userId}`
-        };
-
-        const order = await razorpay.orders.create(options);
-        res.json(order);
-    } catch (error) {
-        res.status(500).json({ error: "Failed to create order" });
-    }
-});
-
-// Automated Verification & Shiprocket Courier Assignment Route
-app.post('/api/payment/verify', authenticateToken, async (req, res) => {
-    try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, shippingAddress } = req.body;
-        const sign = razorpay_order_id + "|" + razorpay_payment_id;
-        
-        const expectedSign = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-                                   .update(sign.toString())
-                                   .digest("hex");
-
-        if (razorpay_signature !== expectedSign) {
-            return res.status(400).json({ error: "Invalid payment signature" });
-        }
-
-        const cart = await Cart.findOne({ userId: req.user.userId });
-        if (!cart || cart.items.length === 0) return res.status(400).json({ error: "Cart is empty" });
-
-        let totalAmount = 0;
-        const orderItems = cart.items.map(item => {
-            const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
-            totalAmount += (numericalPrice * item.quantity);
-            return {
-                name: `Shuchiva Product - Size: ${item.sizeKey} Pack: ${item.packKey}`,
-                sku: item.productId,
-                units: item.quantity,
-                selling_price: numericalPrice,
-                discount: 0,
-                tax: 0,
-                hsn: ""
-            };
-        });
-
-        const shiprocketAuth = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', {
+        // 1. Authenticate with Shiprocket
+        const srAuth = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', {
             email: process.env.SHIPROCKET_EMAIL,
             password: process.env.SHIPROCKET_PASSWORD
         });
-        const shiprocketToken = shiprocketAuth.data.token;
 
-        const shiprocketPayload = {
-            order_id: `SHU_${razorpay_order_id}`, 
-            order_date: new Date().toISOString(),
-            pickup_location: "work", 
-            billing_customer_name: shippingAddress.fullName,
-            billing_last_name: "",
-            billing_address: shippingAddress.address,
-            billing_city: shippingAddress.city,
-            billing_pincode: shippingAddress.pincode,
-            billing_state: shippingAddress.state,
-            billing_country: "India",
-            billing_email: req.user.email || "customer@shuchiva.com",
-            billing_phone: shippingAddress.phone,
-            shipping_is_billing: true,
-            order_items: orderItems,
-            payment_method: "Prepaid",
-            sub_total: totalAmount,
-            length: 10, breadth: 10, height: 10, weight: 0.5 
+        // 2. Map items and create Fastrr session
+        const payload = {
+            order_items: cart.items.map(item => ({
+                sku: item.productId,
+                name: `Shuchiva Product`,
+                units: item.quantity,
+                selling_price: parseInt(item.price.replace(/[^0-9]/g, ''), 10)
+            })),
+            customer_email: user.email
         };
 
-        const shiprocketOrder = await axios.post('https://apiv2.shiprocket.in/v1/external/orders/create/adhoc', shiprocketPayload, {
-            headers: { 'Authorization': `Bearer ${shiprocketToken}` }
+        const fastrrRes = await axios.post('https://apiv2.shiprocket.in/v1/external/checkout/create', payload, {
+            headers: { 'Authorization': `Bearer ${srAuth.data.token}` }
         });
 
-        const newOrder = new Order({
-            userId: req.user.userId,
-            items: cart.items,
-            razorpayPaymentId: razorpay_payment_id,
-            razorpayOrderId: razorpay_order_id,
-            totalAmount: totalAmount,
-            shippingAddress: shippingAddress,
-            shiprocketShipmentId: shiprocketOrder.data.shipment_id,
-            shiprocketOrderId: shiprocketOrder.data.order_id,
-            status: 'Processing'
-        });
-        await newOrder.save();
-
-        cart.items = [];
-        await cart.save();
-
-        res.json({ message: "Payment verified, order saved, and pushed to Shiprocket!" });
-
+        res.json({ checkoutToken: fastrrRes.data.token, checkoutUrl: fastrrRes.data.checkout_url });
     } catch (error) {
-        console.error('Checkout Pipeline Error:', error.response ? error.response.data : error);
-        res.status(500).json({ error: "Failed to process the final order." });
-    }
-});
-
-// Razorpay Webhook Fallback
-app.post('/api/webhook/razorpay', async (req, res) => {
-    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET; 
-    const signature = req.headers['x-razorpay-signature'];
-
-    try {
-        const expectedSignature = crypto
-            .createHmac('sha256', webhookSecret)
-            .update(req.rawBody)
-            .digest('hex');
-
-        if (signature !== expectedSignature) {
-            return res.status(400).json({ error: 'Invalid signature' });
-        }
-
-        const event = req.body.event;
-
-        if (event === 'order.paid') {
-            const paymentEntity = req.body.payload.payment.entity;
-            const orderEntity = req.body.payload.order.entity;
-            
-            const orderId = paymentEntity.order_id;
-            const paymentId = paymentEntity.id;
-            const userId = orderEntity.receipt.replace('receipt_', '');
-
-            const existingOrder = await Order.findOne({ razorpayOrderId: orderId });
-            
-            if (!existingOrder) {
-                const cart = await Cart.findOne({ userId: userId });
-                
-                if (cart && cart.items.length > 0) {
-                    let totalAmount = 0;
-                    cart.items.forEach(item => {
-                        const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
-                        totalAmount += numericalPrice * item.quantity;
-                    });
-
-                    const newOrder = new Order({
-                        userId: userId,
-                        items: cart.items,
-                        razorpayPaymentId: paymentId,
-                        razorpayOrderId: orderId,
-                        totalAmount: totalAmount,
-                        shippingAddress: { address: "Webhook Fallback - Awaiting Address" } 
-                    });
-                    
-                    await newOrder.save();
-
-                    cart.items = [];
-                    await cart.save();
-                    
-                    console.log(`Webhook fallback successful: Order saved for user ${userId}`);
-                }
-            }
-        }
-
-        res.status(200).json({ status: 'ok' });
-
-    } catch (error) {
-        console.error('Webhook Error:', error);
-        res.status(500).json({ error: 'Webhook processing failed' });
+        console.error('Fastrr Error:', error.response?.data || error);
+        res.status(500).json({ error: "Failed to create checkout session" });
     }
 });
 

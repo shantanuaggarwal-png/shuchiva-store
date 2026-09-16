@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Checkout | Shuchiva Essentials</title>
-    <!-- Razorpay Checkout Script -->
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <style>
         body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, sans-serif; }
         .cart-wrapper { max-width: 1200px; margin: 4rem auto; padding: 0 2rem; }
@@ -34,16 +32,6 @@
         .summary-row { display: flex; justify-content: space-between; margin-bottom: 1rem; color: #a3b3c8; font-size: 1.05rem; }
         .summary-total { display: flex; justify-content: space-between; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); font-size: 1.4rem; font-weight: 700; color: #fff; }
 
-        /* Shipping Form Styling */
-        .shipping-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); }
-        .shipping-title { font-size: 1.2rem; font-weight: 500; margin: 0 0 1rem 0; color: #fff; }
-        .form-field { margin-bottom: 0.85rem; }
-        .form-field label { display: block; font-size: 0.85rem; color: #a3b3c8; margin-bottom: 4px; }
-        .form-field input, .form-field select { width: 100%; padding: 10px 12px; box-sizing: border-box; background-color: #0d1117; border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; font-size: 0.95rem; }
-        .form-field input:focus, .form-field select:focus { outline: none; border-color: #4da8da; }
-        .form-row-2 { display: flex; gap: 10px; }
-        .form-row-2 .form-field { flex: 1; }
-        
         .checkout-btn { width: 100%; padding: 16px; background-color: #4da8da; color: #0d1117; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 1.5rem; text-transform: uppercase; letter-spacing: 1px; transition: 0.2s; }
         .checkout-btn:hover { background-color: #3a8ebd; }
         
@@ -57,7 +45,7 @@
     <div class="cart-wrapper">
         <div class="page-header">
             <h1>Shopping Cart</h1>
-            <p>Review your selected items and shipping details before proceeding to secure checkout.</p>
+            <p>Review your selected items before proceeding to secure Fastrr checkout.</p>
         </div>
         
         <div class="cart-layout" id="cart-content">
@@ -66,47 +54,6 @@
     </div>
 
     <script>
-        // --- GOOGLE MAPS AUTOCOMPLETE LOGIC ---
-        let autocomplete;
-        let isGoogleMapsLoaded = false;
-
-        function initGoogleMaps() {
-            isGoogleMapsLoaded = true;
-            if (document.getElementById('ship-address')) {
-                bindAutocomplete();
-            }
-        }
-
-        function bindAutocomplete() {
-            const addressInput = document.getElementById('ship-address');
-            if (!addressInput) return;
-
-            autocomplete = new google.maps.places.Autocomplete(addressInput, {
-                componentRestrictions: { country: 'in' }, 
-                fields: ['address_components', 'name']
-            });
-            
-            autocomplete.addListener('place_changed', fillInAddress);
-        }
-
-        function fillInAddress() {
-            const place = autocomplete.getPlace();
-            if (!place.address_components) return;
-
-            for (const component of place.address_components) {
-                const types = component.types;
-                
-                if (types.includes('locality') || types.includes('administrative_area_level_3') || types.includes('administrative_area_level_2')) {
-                    document.getElementById('ship-city').value = component.long_name;
-                } else if (types.includes('administrative_area_level_1')) {
-                    document.getElementById('ship-state').value = component.long_name;
-                } else if (types.includes('postal_code')) {
-                    document.getElementById('ship-pincode').value = component.long_name;
-                }
-            }
-        }
-        // ----------------------------------------
-
         async function loadCart() {
             const token = localStorage.getItem('shuchiva_token');
             const contentDiv = document.getElementById('cart-content');
@@ -170,8 +117,6 @@
                     `;
                 });
 
-                const savedName = localStorage.getItem('shuchiva_user_name') || '';
-
                 contentDiv.innerHTML = `
                     <div class="cart-items-section">
                         ${itemsHTML}
@@ -182,65 +127,15 @@
                             <span>Subtotal (${totalQty} items)</span>
                             <span>₹${totalAmount}</span>
                         </div>
-                        <div class="summary-row">
-                            <span>Shipping</span>
-                            <span style="color: #4da8da;">Calculated at checkout</span>
-                        </div>
                         <div class="summary-total">
                             <span>Total</span>
                             <span>₹${totalAmount}</span>
                         </div>
-
-                        <!-- Delivery Address Form Required for Shiprocket -->
-                        <div class="shipping-section">
-                            <h4 class="shipping-title">Delivery Address</h4>
-                            
-                            <!-- Saved Address Selector -->
-                            <div class="form-field" id="saved-addresses-dropdown" style="display: none; margin-bottom: 1.5rem;">
-                                <label for="address-selector" style="color: #4da8da; font-weight: bold;">Select a Saved Address</label>
-                                <select id="address-selector" onchange="fillSavedAddress(this.value)">
-                                    <option value="">-- Choose an address or enter a new one below --</option>
-                                </select>
-                            </div>
-
-                            <div class="form-field">
-                                <label for="ship-name">Full Name *</label>
-                                <input type="text" id="ship-name" placeholder="Receiver full name" value="${savedName}" required>
-                            </div>
-                            <div class="form-field">
-                                <label for="ship-phone">Phone Number (10 digits) *</label>
-                                <input type="tel" id="ship-phone" placeholder="9876543210" maxlength="10" required>
-                            </div>
-                            <div class="form-field">
-                                <label for="ship-address">Search Area/Building, then add Flat No. *</label>
-                                <input type="text" id="ship-address" placeholder="Start typing to search area..." required>
-                            </div>
-                            <div class="form-row-2">
-                                <div class="form-field">
-                                    <label for="ship-city">City *</label>
-                                    <input type="text" id="ship-city" placeholder="e.g. Dehradun" required>
-                                </div>
-                                <div class="form-field">
-                                    <label for="ship-pincode">Pincode *</label>
-                                    <input type="text" id="ship-pincode" placeholder="6 digits" maxlength="6" required>
-                                </div>
-                            </div>
-                            <div class="form-field">
-                                <label for="ship-state">State *</label>
-                                <input type="text" id="ship-state" placeholder="e.g. Uttarakhand" required>
-                            </div>
-                        </div>
-
-                        <button class="checkout-btn" onclick="processCheckout()">Proceed to Checkout</button>
+                        <button class="checkout-btn" onclick="initiateFastrr()">Checkout with Fastrr</button>
                     </div>
                 `;
 
                 window.dispatchEvent(new Event('cartUpdated'));
-                
-                // Bind Google Maps once HTML form is created
-                if (isGoogleMapsLoaded) {
-                    bindAutocomplete();
-                }
 
                 // Image error fallback
                 const cartImages = document.querySelectorAll('.cart-item-img');
@@ -286,148 +181,41 @@
             }
         }
 
-        async function processCheckout() {
+        async function initiateFastrr() {
             const token = localStorage.getItem('shuchiva_token');
             if (!token) return alert('Please log in first.');
 
-            // 1. Validate shipping fields
-            const fullName = document.getElementById('ship-name').value.trim();
-            const phone = document.getElementById('ship-phone').value.trim();
-            const address = document.getElementById('ship-address').value.trim();
-            const city = document.getElementById('ship-city').value.trim();
-            const pincode = document.getElementById('ship-pincode').value.trim();
-            const state = document.getElementById('ship-state').value.trim();
-
-            if (!fullName || !phone || !address || !city || !pincode || !state) {
-                return alert('Please fill in all required delivery address fields.');
-            }
-
-            if (!/^\d{10}$/.test(phone)) {
-                return alert('Please enter a valid 10-digit mobile number.');
-            }
-
-            if (!/^\d{6}$/.test(pincode)) {
-                return alert('Please enter a valid 6-digit postal pincode.');
-            }
-
-            const shippingAddress = { fullName, phone, address, city, pincode, state };
-
             try {
-                // 2. Create order on backend
-                const orderRes = await fetch('/api/payment/create-order', {
+                const res = await fetch('/api/checkout/fastrr', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const order = await orderRes.json();
-                
-                if (order.error) return alert(order.error);
-
-                // 3. Open Razorpay modal with customer prefill
-                const options = {
-                    key: 'rzp_live_TbyT9enQRy7J3V',
-                    amount: order.amount,
-                    currency: "INR",
-                    name: "Shuchiva Essentials",
-                    description: "Secure Checkout",
-                    order_id: order.id,
-                    prefill: {
-                        name: fullName,
-                        contact: phone
-                    },
-                    handler: async function (response) {
-                        // 4. Send payment signature + address payload together
-                        const verifyRes = await fetch('/api/payment/verify', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
-                            body: JSON.stringify({
-                                ...response,
-                                shippingAddress
-                            })
-                        });
-                        
-                        const verifyData = await verifyRes.json();
-                        if (verifyRes.ok) {
-                            alert('Payment successful! Your order has been placed.');
-                            window.location.href = '../account/orders.html';
-                        } else {
-                            alert(verifyData.error || 'Payment verification failed.');
-                        }
-                    }
-                };
-                const rzp = new Razorpay(options);
-                rzp.open();
-            } catch (error) {
-                console.error('Checkout error:', error);
-                alert('There was a problem initiating checkout.');
-            }
-        }
-
-        // --- NEW ADDRESS BOOK LOGIC ---
-        let customerAddresses = [];
-
-        async function fetchSavedAddresses() {
-            const token = localStorage.getItem('shuchiva_token');
-            if (!token) return;
-
-            try {
-                const res = await fetch('/api/user/addresses', { headers: { 'Authorization': `Bearer ${token}` } });
                 const data = await res.json();
                 
-                if (data.addresses && data.addresses.length > 0) {
-                    customerAddresses = data.addresses;
-                    const dropdown = document.getElementById('saved-addresses-dropdown');
-                    const selector = document.getElementById('address-selector');
-                    
-                    // Show the dropdown if addresses exist
-                    dropdown.style.display = 'block';
-                    
-                    // Clear previous options except default
-                    selector.innerHTML = '<option value="">-- Choose an address or enter a new one below --</option>';
-                    
-                    data.addresses.forEach((addr, index) => {
-                        const option = document.createElement('option');
-                        option.value = index;
-                        option.textContent = `${addr.fullName} - ${addr.city} (${addr.pincode})`;
-                        selector.appendChild(option);
+                if (data.error) return alert(data.error);
+
+                if (window.Fastrr) {
+                    window.Fastrr.init({
+                        token: data.checkoutToken,
+                        onSuccess: function(response) {
+                            alert('Order placed successfully!');
+                            window.location.href = '../account/orders.html';
+                        }
                     });
+                } else {
+                    window.location.href = data.checkoutUrl; // Fallback redirect if overlay fails
                 }
             } catch (error) {
-                console.error("Failed to load saved addresses.");
+                console.error('Fastrr error:', error);
+                alert('Failed to launch checkout.');
             }
         }
-
-        function fillSavedAddress(index) {
-            if (index === "") {
-                // Clear fields if they select the default option
-                document.getElementById('ship-name').value = localStorage.getItem('shuchiva_user_name') || '';
-                document.getElementById('ship-phone').value = '';
-                document.getElementById('ship-address').value = '';
-                document.getElementById('ship-city').value = '';
-                document.getElementById('ship-pincode').value = '';
-                document.getElementById('ship-state').value = '';
-                return;
-            }
-            
-            const addr = customerAddresses[index];
-            document.getElementById('ship-name').value = addr.fullName;
-            document.getElementById('ship-phone').value = addr.phone;
-            document.getElementById('ship-address').value = addr.address;
-            document.getElementById('ship-city').value = addr.city;
-            document.getElementById('ship-pincode').value = addr.pincode;
-            document.getElementById('ship-state').value = addr.state;
-        }
-
-        // Trigger address fetch when cart finishes rendering
-        window.addEventListener('cartUpdated', fetchSavedAddresses);
 
         loadCart();
     </script>
 
-    <!-- GOOGLE MAPS API KEY GOES HERE! -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDXTUYnDH-pKYYpC5Fkci67PS7kzu5xhRo&libraries=places&callback=initGoogleMaps"></script>
+    <!-- Fastrr SDK replaces Google Maps and Razorpay SDKs -->
+    <script src="https://fastrr-api.shiprocket.in/fastrr.js"></script>
     <script src="../homepage/toolbar.js"></script>
 </body>
 </html>
