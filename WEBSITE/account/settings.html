@@ -74,8 +74,8 @@
                     <input type="tel" id="addr-phone" maxlength="10" required>
                 </div>
                 <div class="form-group">
-                    <label>Street Address / House No.</label>
-                    <input type="text" id="addr-street" required>
+                    <label>Search Area/Building, then add Flat No.</label>
+                    <input type="text" id="addr-street" placeholder="Start typing to search area..." required>
                 </div>
                 <div class="form-row-2">
                     <div class="form-group">
@@ -97,6 +97,37 @@
     </div>
 
     <script>
+        // --- GOOGLE MAPS AUTOCOMPLETE LOGIC ---
+        let settingsAutocomplete;
+
+        function initSettingsAutocomplete() {
+            const addressInput = document.getElementById('addr-street');
+            if (!addressInput) return;
+
+            settingsAutocomplete = new google.maps.places.Autocomplete(addressInput, {
+                componentRestrictions: { country: 'in' },
+                fields: ['address_components', 'name']
+            });
+
+            settingsAutocomplete.addListener('place_changed', () => {
+                const place = settingsAutocomplete.getPlace();
+                if (!place.address_components) return;
+
+                for (const component of place.address_components) {
+                    const types = component.types;
+
+                    if (types.includes('locality') || types.includes('administrative_area_level_3') || types.includes('administrative_area_level_2')) {
+                        document.getElementById('addr-city').value = component.long_name;
+                    } else if (types.includes('administrative_area_level_1')) {
+                        document.getElementById('addr-state').value = component.long_name;
+                    } else if (types.includes('postal_code')) {
+                        document.getElementById('addr-pin').value = component.long_name;
+                    }
+                }
+            });
+        }
+        // ----------------------------------------
+
         const token = localStorage.getItem('shuchiva_token');
         const userNameInput = document.getElementById('user-name');
         userNameInput.value = localStorage.getItem('shuchiva_user_name') || 'Customer';
@@ -203,6 +234,9 @@
         // Load existing addresses on page load
         loadAddresses();
     </script>
+    
+    <!-- GOOGLE MAPS API KEY GOES HERE! -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDXTUYnDH-pKYYpC5Fkci67PS7kzu5xhRo&libraries=places&callback=initSettingsAutocomplete"></script>
     <script src="../homepage/toolbar.js"></script>
 </body>
 </html>

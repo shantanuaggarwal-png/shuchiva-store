@@ -66,6 +66,47 @@
     </div>
 
     <script>
+        // --- GOOGLE MAPS AUTOCOMPLETE LOGIC ---
+        let autocomplete;
+        let isGoogleMapsLoaded = false;
+
+        function initGoogleMaps() {
+            isGoogleMapsLoaded = true;
+            if (document.getElementById('ship-address')) {
+                bindAutocomplete();
+            }
+        }
+
+        function bindAutocomplete() {
+            const addressInput = document.getElementById('ship-address');
+            if (!addressInput) return;
+
+            autocomplete = new google.maps.places.Autocomplete(addressInput, {
+                componentRestrictions: { country: 'in' }, 
+                fields: ['address_components', 'name']
+            });
+            
+            autocomplete.addListener('place_changed', fillInAddress);
+        }
+
+        function fillInAddress() {
+            const place = autocomplete.getPlace();
+            if (!place.address_components) return;
+
+            for (const component of place.address_components) {
+                const types = component.types;
+                
+                if (types.includes('locality') || types.includes('administrative_area_level_3') || types.includes('administrative_area_level_2')) {
+                    document.getElementById('ship-city').value = component.long_name;
+                } else if (types.includes('administrative_area_level_1')) {
+                    document.getElementById('ship-state').value = component.long_name;
+                } else if (types.includes('postal_code')) {
+                    document.getElementById('ship-pincode').value = component.long_name;
+                }
+            }
+        }
+        // ----------------------------------------
+
         async function loadCart() {
             const token = localStorage.getItem('shuchiva_token');
             const contentDiv = document.getElementById('cart-content');
@@ -171,8 +212,8 @@
                                 <input type="tel" id="ship-phone" placeholder="9876543210" maxlength="10" required>
                             </div>
                             <div class="form-field">
-                                <label for="ship-address">Street Address / House No. *</label>
-                                <input type="text" id="ship-address" placeholder="Flat, building, area, street" required>
+                                <label for="ship-address">Search Area/Building, then add Flat No. *</label>
+                                <input type="text" id="ship-address" placeholder="Start typing to search area..." required>
                             </div>
                             <div class="form-row-2">
                                 <div class="form-field">
@@ -195,6 +236,11 @@
                 `;
 
                 window.dispatchEvent(new Event('cartUpdated'));
+                
+                // Bind Google Maps once HTML form is created
+                if (isGoogleMapsLoaded) {
+                    bindAutocomplete();
+                }
 
                 // Image error fallback
                 const cartImages = document.querySelectorAll('.cart-item-img');
@@ -380,6 +426,8 @@
         loadCart();
     </script>
 
+    <!-- GOOGLE MAPS API KEY GOES HERE! -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDXTUYnDH-pKYYpC5Fkci67PS7kzu5xhRo&libraries=places&callback=initGoogleMaps"></script>
     <script src="../homepage/toolbar.js"></script>
 </body>
 </html>
