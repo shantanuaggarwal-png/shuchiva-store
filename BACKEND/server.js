@@ -145,7 +145,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 });
 
 
-// --- USER PROFILE & ADDRESS BOOK ROUTES ---
+// --- USER PROFILE ROUTES ---
 app.put('/api/user/profile', authenticateToken, async (req, res) => {
     try {
         const { name } = req.body;
@@ -256,7 +256,8 @@ app.post('/api/checkout/fastrr', authenticateToken, async (req, res) => {
                                 .digest('base64');
 
         // 3. Post to the Fastrr Headless Endpoint with strict security headers
-        const fastrrRes = await axios.post('https://checkout-api.shiprocket.com/v1/checkout', payload, {
+        // FIXED URL TO: /public-api/v1/checkout
+        const fastrrRes = await axios.post('https://checkout-api.shiprocket.com/public-api/v1/checkout', payload, {
             headers: { 
                 'Content-Type': 'application/json',
                 'X-Api-Key': process.env.FASTRR_API_KEY,
@@ -273,7 +274,6 @@ app.post('/api/checkout/fastrr', authenticateToken, async (req, res) => {
 
 // --- FASTRR SUCCESS WEBHOOK (Placeholder for finalizing orders) ---
 app.post('/api/webhook/fastrr', async (req, res) => {
-    // We will build this out once the checkout window successfully opens
     res.status(200).json({ status: "Webhook received" });
 });
 
