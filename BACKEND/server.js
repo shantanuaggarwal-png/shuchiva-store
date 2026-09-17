@@ -5,7 +5,6 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const axios = require('axios'); 
-const Razorpay = require('razorpay'); 
 const crypto = require('crypto');     
 
 // Import Schemas
@@ -167,7 +166,6 @@ app.put('/api/user/profile', authenticateToken, async (req, res) => {
     }
 });
 
-// Fetch saved addresses
 app.get('/api/user/addresses', authenticateToken, async (req, res) => {
     try {
         const user = await User.findById(req.user.userId);
@@ -175,29 +173,7 @@ app.get('/api/user/addresses', authenticateToken, async (req, res) => {
         
         res.json({ addresses: user.savedAddresses || [] });
     } catch (error) {
-        console.error('Fetch Addresses Error:', error);
         res.status(500).json({ error: "Failed to fetch addresses." });
-    }
-});
-
-// Add a new address
-app.post('/api/user/addresses', authenticateToken, async (req, res) => {
-    try {
-        const { fullName, phone, address, city, state, pincode } = req.body;
-        
-        if (!fullName || !phone || !address || !city || !state || !pincode) {
-            return res.status(400).json({ error: "All address fields are required." });
-        }
-
-        const user = await User.findById(req.user.userId);
-        
-        user.savedAddresses.push({ fullName, phone, address, city, state, pincode });
-        await user.save();
-
-        res.status(200).json({ message: "Address saved successfully!", addresses: user.savedAddresses });
-    } catch (error) {
-        console.error('Save Address Error:', error);
-        res.status(500).json({ error: "Failed to save address." });
     }
 });
 
@@ -231,7 +207,6 @@ app.post('/api/cart', authenticateToken, async (req, res) => {
         await cart.save();
         res.status(200).json({ message: "Item added to cart successfully!", cart });
     } catch (error) {
-        console.error('Error adding to cart:', error);
         res.status(500).json({ error: "Failed to add item to cart." });
     }
 });
@@ -247,84 +222,12 @@ app.delete('/api/cart/remove', authenticateToken, async (req, res) => {
         await cart.save();
         res.status(200).json({ message: "Item removed successfully" });
     } catch (error) {
-        console.error('Error removing item:', error);
         res.status(500).json({ error: "Failed to remove item." });
     }
 });
 
 
-// --- RAZORPAY PAYMENT & ORDER ROUTES ---
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET
-});
-
-app.post('/api/payment/create-order', authenticateToken, async (req, res) => {
-    try {
-        const cart = await Cart.findOne({ userId: req.user.userId });
-        if (!cart || cart.items.length === 0) return res.status(400).json({ error: "Cart is empty" });
-
-        let totalAmount = 0;
-        cart.items.forEach(item => {
-            const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
-            totalAmount += numericalPrice * item.quantity;
-        });
-
-        const options = {
-            amount: totalAmount * 100, 
-            currency: "INR",
-            receipt: `receipt_${req.user.userId}`
-        };
-
-        const order = await razorpay.orders.create(options);
-        res.json(order);
-    } catch (error) {
-        res.status(500).json({ error: "Failed to create order" });
-    }
-});
-
-app.post('/api/payment/verify', authenticateToken, async (req, res) => {
-    try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-        const sign = razorpay_order_id + "|" + razorpay_payment_id;
-        
-        const expectedSign = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-                                   .update(sign.toString())
-                                   .digest("hex");
-
-        if (razorpay_signature === expectedSign) {
-            const cart = await Cart.findOne({ userId: req.user.userId });
-            if (!cart || cart.items.length === 0) return res.status(400).json({ error: "Cart is empty" });
-
-            let totalAmount = 0;
-            cart.items.forEach(item => {
-                const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
-                totalAmount += numericalPrice * item.quantity;
-            });
-
-            const newOrder = new Order({
-                userId: req.user.userId,
-                items: cart.items,
-                razorpayPaymentId: razorpay_payment_id,
-                razorpayOrderId: razorpay_order_id,
-                totalAmount: totalAmount
-            });
-            await newOrder.save();
-
-            cart.items = [];
-            await cart.save();
-
-            res.json({ message: "Payment verified successfully, order saved!" });
-        } else {
-            res.status(400).json({ error: "Invalid payment signature" });
-        }
-    } catch (error) {
-        console.error('Order Saving Error:', error);
-        res.status(500).json({ error: "Failed to process order." });
-    }
-});
-
-// --- FASTRR CHECKOUT ROUTE ---
+// --- FASTRR CHECKOUT ROUTE (S2S HEADLESS API) ---
 app.post('/api/checkout/fastrr', authenticateToken, async (req, res) => {
     try {
         const cart = await Cart.findOne({ userId: req.user.userId });
@@ -332,13 +235,7 @@ app.post('/api/checkout/fastrr', authenticateToken, async (req, res) => {
 
         const user = await User.findById(req.user.userId);
 
-        // 1. Authenticate with Shiprocket
-        const srAuth = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', {
-            email: process.env.SHIPROCKET_EMAIL,
-            password: process.env.SHIPROCKET_PASSWORD
-        });
-
-        // 2. Map items and create Fastrr session
+        // 1. Structure the exact payload Shiprocket Fastrr requires
         const payload = {
             channel_id: "12151066",
             order_items: cart.items.map(item => ({
@@ -347,18 +244,37 @@ app.post('/api/checkout/fastrr', authenticateToken, async (req, res) => {
                 units: item.quantity,
                 selling_price: parseInt(item.price.replace(/[^0-9]/g, ''), 10)
             })),
-            customer_email: user.email
+            customer_email: user.email,
+            customer_phone: user.phone || "" 
         };
 
-        const fastrrRes = await axios.post('https://apiv2.shiprocket.in/v1/external/checkout/create', payload, {
-            headers: { 'Authorization': `Bearer ${srAuth.data.token}` }
+        const payloadString = JSON.stringify(payload);
+
+        // 2. Generate the Cryptographic HMAC SHA256 Signature in Base64
+        const signature = crypto.createHmac('sha256', process.env.FASTRR_API_SECRET)
+                                .update(payloadString)
+                                .digest('base64');
+
+        // 3. Post to the Fastrr Headless Endpoint with strict security headers
+        const fastrrRes = await axios.post('https://checkout-api.shiprocket.com/v1/checkout', payload, {
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Api-Key': process.env.FASTRR_API_KEY,
+                'X-Api-HMAC-SHA256': signature
+            }
         });
 
         res.json({ checkoutToken: fastrrRes.data.token, checkoutUrl: fastrrRes.data.checkout_url });
     } catch (error) {
-        console.error('Fastrr Error:', error.response?.data || error);
+        console.error('Fastrr S2S Error:', error.response?.data || error);
         res.status(500).json({ error: "Failed to create checkout session" });
     }
+});
+
+// --- FASTRR SUCCESS WEBHOOK (Placeholder for finalizing orders) ---
+app.post('/api/webhook/fastrr', async (req, res) => {
+    // We will build this out once the checkout window successfully opens
+    res.status(200).json({ status: "Webhook received" });
 });
 
 app.get('/api/orders', authenticateToken, async (req, res) => {
