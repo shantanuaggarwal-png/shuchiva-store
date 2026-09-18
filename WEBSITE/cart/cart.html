@@ -6,6 +6,8 @@
     <title>Secure Checkout | Shuchiva Essentials</title>
     <!-- Razorpay Checkout Script -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <!-- Shiprocket Fastrr SDK -->
+    <script src="https://fastrr-boost-ui.shiprocket.in/fastrr-headless.js"></script>
     <style>
         body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, sans-serif; }
         .cart-wrapper { max-width: 1200px; margin: 4rem auto; padding: 0 2rem; }
@@ -36,6 +38,7 @@
 
         .checkout-btn { width: 100%; padding: 16px; background-color: #4da8da; color: #0d1117; border: none; border-radius: 6px; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 1.5rem; text-transform: uppercase; letter-spacing: 1px; transition: 0.2s; }
         .checkout-btn:hover { background-color: #3a8ebd; }
+        .checkout-btn:disabled { background-color: #2a5a75; cursor: not-allowed; color: #8b9eb7; }
         
         .empty-cart { text-align: center; color: #a3b3c8; font-size: 1.2rem; padding: 4rem 0; width: 100%; }
     </style>
@@ -54,9 +57,6 @@
             <h3 style="text-align: center; width: 100%;">Loading your cart...</h3>
         </div>
     </div>
-
-    <!-- INSERT SHIPROCKET IFRAME SCRIPT SNIPPET HERE -->
-    <!-- <script src="https://...shiprocket-login-iframe.js"></script> -->
 
     <script>
         async function loadCart() {
@@ -180,25 +180,70 @@
         }
 
         // --- 1. SHIPROCKET LOGIN IFRAME TRIGGER ---
-        function initiateShiprocketLogin() {
+        async function initiateShiprocketLogin() {
             const token = localStorage.getItem('shuchiva_token');
             if (!token) return alert('Please log in first.');
 
-            // NOTE: Replace this mock implementation with the exact function call 
-            // provided in your Shiprocket Login Iframe API documentation.
-            if (window.ShiprocketLogin) {
-                window.ShiprocketLogin.open({
-                    onSuccess: function (userData) {
-                        // userData should contain the verified address payload from Shiprocket
-                        console.log("Shiprocket Address Acquired:", userData);
-                        triggerRazorpayCheckout(userData);
-                    },
-                    onError: function (err) {
-                        console.error('Shiprocket Login Failed:', err);
-                    }
+            const checkoutBtn = document.querySelector('.checkout-btn');
+            const originalText = checkoutBtn.textContent;
+            checkoutBtn.textContent = "Loading Secure Vault...";
+            checkoutBtn.disabled = true;
+
+            try {
+                // Request Fastrr Access Token
+                const tokenRes = await fetch('/api/shiprocket/access-token', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
                 });
-            } else {
-                alert("Shiprocket Login is currently unavailable.");
+                
+                const tokenData = await tokenRes.json();
+                
+                if (tokenData.error || !tokenData.token) {
+                    throw new Error(tokenData.error || "Failed to retrieve Vault Token");
+                }
+
+                // Initialize Shiprocket Fastrr Iframe
+                if (typeof HeadlessCheckout !== 'undefined') {
+                    const checkout = new HeadlessCheckout({
+                        token: tokenData.token,
+                        onSuccess: async function (payload) {
+                            
+                            // Ask backend to decrypt the customer_token into the actual address
+                            const addressRes = await fetch('/api/shiprocket/fetch-address', {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}` 
+                                },
+                                body: JSON.stringify({ customerToken: payload.customer_token })
+                            });
+                            
+                            const addressData = await addressRes.json();
+                            
+                            if (addressData.address) {
+                                triggerRazorpayCheckout(addressData.address);
+                            } else {
+                                alert("Failed to extract address from vault.");
+                            }
+                        },
+                        onError: function (err) {
+                            console.error('Shiprocket Login Failed:', err);
+                            alert("Address verification was cancelled or failed.");
+                        }
+                    });
+                    
+                    checkout.init(); 
+                    
+                } else {
+                    alert("Shiprocket SDK is currently unavailable. Please check your network.");
+                }
+
+            } catch (error) {
+                console.error("Vault Error:", error);
+                alert(error.message || "Could not launch address vault.");
+            } finally {
+                checkoutBtn.textContent = originalText;
+                checkoutBtn.disabled = false;
             }
         }
 
@@ -207,7 +252,6 @@
             const token = localStorage.getItem('shuchiva_token');
             
             try {
-                // 1. Tell backend to create a Razorpay order
                 const res = await fetch('/api/payment/create-order', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -216,21 +260,19 @@
                 
                 if (orderData.error) return alert(orderData.error);
 
-                // 2. Open the Razorpay payment window
                 const options = {
-                    key: "YOUR_RAZORPAY_KEY_ID", // Ensure this matches your Render Env Variable
+                    key: "YOUR_RAZORPAY_KEY_ID", // Add your Live/Test Key ID here
                     amount: orderData.amount,
                     currency: "INR",
                     name: "Shuchiva Essentials",
                     description: "Secure Checkout",
                     order_id: orderData.id,
                     prefill: {
-                        name: verifiedUserData.name || localStorage.getItem('shuchiva_user_name'),
+                        name: verifiedUserData.first_name || localStorage.getItem('shuchiva_user_name'),
                         contact: verifiedUserData.phone || "",
                         email: verifiedUserData.email || ""
                     },
                     handler: async function (response) {
-                        // 3. Verify successful payment and save the Shiprocket address
                         const verifyRes = await fetch('/api/payment/verify', {
                             method: 'POST',
                             headers: { 
@@ -241,7 +283,7 @@
                                 razorpay_order_id: response.razorpay_order_id,
                                 razorpay_payment_id: response.razorpay_payment_id,
                                 razorpay_signature: response.razorpay_signature,
-                                delivery_address: verifiedUserData.address // Pass Shiprocket's address payload to backend
+                                delivery_address: verifiedUserData // Pass the complete address payload
                             })
                         });
                         
