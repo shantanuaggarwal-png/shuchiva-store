@@ -8,7 +8,7 @@ const axios = require('axios');
 const crypto = require('crypto');     
 const Razorpay = require('razorpay'); 
 
-// Import Schemas[cite: 4]
+// Import Schemas
 const Product = require('./models/Product');
 const User = require('./models/User');
 const Cart = require('./models/cart');
@@ -238,7 +238,8 @@ app.post('/api/shiprocket/access-token', authenticateToken, async (req, res) => 
                                 .update(payloadString)
                                 .digest('base64');
 
-        const tokenRes = await axios.post('https://checkout-api.shiprocket.com/public-api/v1/login/access-token', {}, {
+        // FIXED URL: Removed /public-api/ to prevent path duplication on Shiprocket's end
+        const tokenRes = await axios.post('https://checkout-api.shiprocket.com/v1/login/access-token', {}, {
             headers: { 
                 'Content-Type': 'application/json',
                 'X-Api-Key': process.env.FASTRR_API_KEY,
@@ -264,7 +265,8 @@ app.post('/api/shiprocket/fetch-address', authenticateToken, async (req, res) =>
                                 .update(payloadString)
                                 .digest('base64');
 
-        const addressRes = await axios.post('https://checkout-api.shiprocket.com/public-api/v1/customer/address', payload, {
+        // FIXED URL: Removed /public-api/ to prevent path duplication
+        const addressRes = await axios.post('https://checkout-api.shiprocket.com/v1/customer/address', payload, {
             headers: { 
                 'Content-Type': 'application/json',
                 'X-Api-Key': process.env.FASTRR_API_KEY,
@@ -330,7 +332,6 @@ app.post('/api/payment/verify', authenticateToken, async (req, res) => {
                 totalAmount += numericalPrice * item.quantity;
             });
 
-            // Aligned with order.js: saving as shippingAddress
             const newOrder = new Order({
                 userId: req.user.userId,
                 items: cart.items,
@@ -380,7 +381,7 @@ app.get('/api/products', async (req, res) => {
 });
 
 
-// --- RENDER DYNAMIC PORT ASSIGNMENT ---[cite: 8]
+// --- RENDER DYNAMIC PORT ASSIGNMENT ---
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
