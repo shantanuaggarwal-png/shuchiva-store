@@ -232,6 +232,7 @@ app.delete('/api/cart/remove', authenticateToken, async (req, res) => {
 
 app.post('/api/shiprocket/access-token', authenticateToken, async (req, res) => {
     try {
+        // Shiprocket requires the address flag and a current UTC timestamp payload
         const payload = {
             address: true,
             timestamp: new Date().toISOString()
@@ -250,7 +251,10 @@ app.post('/api/shiprocket/access-token', authenticateToken, async (req, res) => 
             }
         });
 
-        res.json({ token: tokenRes.data.token });
+        // Extract token securely from nested object fallback
+        const vaultToken = tokenRes.data.result ? tokenRes.data.result.token : tokenRes.data.token;
+        
+        res.json({ token: vaultToken });
     } catch (error) {
         console.error('Shiprocket Access Token Error:', error.response?.data || error);
         res.status(500).json({ error: "Failed to generate Shiprocket token." });
@@ -334,6 +338,7 @@ app.post('/api/payment/verify', authenticateToken, async (req, res) => {
                 totalAmount += numericalPrice * item.quantity;
             });
 
+            // Aligned with order.js: saving as shippingAddress
             const newOrder = new Order({
                 userId: req.user.userId,
                 items: cart.items,
