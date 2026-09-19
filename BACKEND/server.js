@@ -238,8 +238,8 @@ app.post('/api/shiprocket/access-token', authenticateToken, async (req, res) => 
                                 .update(payloadString)
                                 .digest('base64');
 
-        // FIXED URL: Changed .com to .in (Shiprocket's official TLD) and restored /public-api/
-        const tokenRes = await axios.post('https://checkout-api.shiprocket.in/public-api/v1/login/access-token', {}, {
+        // Updated with official production URL and /api/v1/ path
+        const tokenRes = await axios.post('https://checkout-api.shiprocket.com/api/v1/access-token/login', {}, {
             headers: { 
                 'Content-Type': 'application/json',
                 'X-Api-Key': process.env.FASTRR_API_KEY,
@@ -265,8 +265,8 @@ app.post('/api/shiprocket/fetch-address', authenticateToken, async (req, res) =>
                                 .update(payloadString)
                                 .digest('base64');
 
-        // FIXED URL: Changed .com to .in and restored /public-api/
-        const addressRes = await axios.post('https://checkout-api.shiprocket.in/public-api/v1/customer/address', payload, {
+        // Updated with official production URL and /api/v1/ path
+        const addressRes = await axios.post('https://checkout-api.shiprocket.com/api/v1/customer/address', payload, {
             headers: { 
                 'Content-Type': 'application/json',
                 'X-Api-Key': process.env.FASTRR_API_KEY,
