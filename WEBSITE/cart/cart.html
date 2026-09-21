@@ -209,11 +209,13 @@
                 // Initialize Shiprocket Fastrr using the specific .buyNow() syntax
                 if (typeof HeadlessCheckout !== 'undefined') {
                     
-                    // Config required by the Netlify staging script
+                    // Config patched with return_url to prevent the /cart/undefined redirect
                     const obj = {
                         amount: 100,
-                        themecolor: "4da8da", // Using your brand's blue hex
-                        image: "" 
+                        themecolor: "4da8da",
+                        image: "",
+                        return_url: window.location.href, 
+                        redirect_url: window.location.href 
                     };
 
                     HeadlessCheckout.buyNow(event, tokenData.token, obj, async function (payload) {
