@@ -6,11 +6,8 @@
     <title>Secure Checkout | Shuchiva Essentials</title>
     <!-- Razorpay Checkout Script -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-    
-    <!-- Shiprocket Fastrr SDK (Netlify Staging Environment) -->
-    <link rel="stylesheet" href="https://custom-login-sr.netlify.app/assets/styles/shopify.css?v=123">
-    <script src="https://custom-login-sr.netlify.app/assets/js/channels/login.js"></script>
-    
+    <!-- Shiprocket Fastrr SDK -->
+    <script src="https://fastrr-boost-ui.shiprocket.in/fastrr-headless.js"></script>
     <style>
         body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, sans-serif; }
         .cart-wrapper { max-width: 1200px; margin: 4rem auto; padding: 0 2rem; }
@@ -125,7 +122,6 @@
                     `;
                 });
 
-                // Notice the (event) parameter added to the onclick handler here
                 contentDiv.innerHTML = `
                     <div class="cart-items-section">
                         ${itemsHTML}
@@ -140,7 +136,7 @@
                             <span>Total</span>
                             <span>₹${totalAmount}</span>
                         </div>
-                        <button class="checkout-btn" onclick="initiateShiprocketLogin(event)">Proceed to Checkout</button>
+                        <button class="checkout-btn" onclick="initiateShiprocketLogin()">Proceed to Checkout</button>
                     </div>
                 `;
 
@@ -183,8 +179,8 @@
             }
         }
 
-        // --- 1. SHIPROCKET LOGIN IFRAME TRIGGER (Netlify Build) ---
-        async function initiateShiprocketLogin(event) {
+        // --- 1. SHIPROCKET LOGIN IFRAME TRIGGER ---
+        async function initiateShiprocketLogin() {
             const token = localStorage.getItem('shuchiva_token');
             if (!token) return alert('Please log in first.');
 
@@ -206,38 +202,37 @@
                     throw new Error(tokenData.error || "Failed to retrieve Vault Token");
                 }
 
-                // Initialize Shiprocket Fastrr using the specific .buyNow() syntax
+                // Initialize Shiprocket Fastrr Iframe
                 if (typeof HeadlessCheckout !== 'undefined') {
-                    
-                    // Config patched with return_url to prevent the /cart/undefined redirect
-                    const obj = {
-                        amount: 100,
-                        themecolor: "4da8da",
-                        image: "",
-                        return_url: window.location.href, 
-                        redirect_url: window.location.href 
-                    };
-
-                    HeadlessCheckout.buyNow(event, tokenData.token, obj, async function (payload) {
-                        
-                        // Ask backend to decrypt the customer_token into the actual address
-                        const addressRes = await fetch('/api/shiprocket/fetch-address', {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}` 
-                            },
-                            body: JSON.stringify({ customerToken: payload.customer_token || payload.token })
-                        });
-                        
-                        const addressData = await addressRes.json();
-                        
-                        if (addressData.address) {
-                            triggerRazorpayCheckout(addressData.address);
-                        } else {
-                            alert("Failed to extract address from vault.");
+                    const checkout = new HeadlessCheckout({
+                        token: tokenData.token,
+                        onSuccess: async function (payload) {
+                            
+                            // Ask backend to decrypt the customer_token into the actual address
+                            const addressRes = await fetch('/api/shiprocket/fetch-address', {
+                                method: 'POST',
+                                headers: { 
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}` 
+                                },
+                                body: JSON.stringify({ customerToken: payload.customer_token })
+                            });
+                            
+                            const addressData = await addressRes.json();
+                            
+                            if (addressData.address) {
+                                triggerRazorpayCheckout(addressData.address);
+                            } else {
+                                alert("Failed to extract address from vault.");
+                            }
+                        },
+                        onError: function (err) {
+                            console.error('Shiprocket Login Failed:', err);
+                            alert("Address verification was cancelled or failed.");
                         }
                     });
+                    
+                    checkout.init(); 
                     
                 } else {
                     alert("Shiprocket SDK is currently unavailable. Please check your network.");
