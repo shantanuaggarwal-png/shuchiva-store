@@ -23,6 +23,11 @@ const orderSchema = new mongoose.Schema({
     shippingAddress: { type: Object, required: true },
     shiprocketShipmentId: { type: String },
     shiprocketOrderId: { type: String },
+    awbCode: { type: String },
+    courierName: { type: String },
+    trackingUrl: { type: String },
+    shiprocketStatus: { type: String, default: 'Pending' }, // 'Created', 'Pending', 'Failed'
+    shiprocketError: { type: String },
     
     status: { type: String, default: 'Processing' } // e.g., Processing, Shipped, Delivered
 }, { 

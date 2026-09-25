@@ -14,6 +14,9 @@ const User = require('./models/User');
 const Cart = require('./models/cart');
 const Order = require('./models/order');
 
+// Import Shiprocket Service
+const shiprocket = require('./services/shiprocket');
+
 const app = express();
 
 app.use(cors());
@@ -178,6 +181,28 @@ app.get('/api/user/addresses', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/api/user/addresses', authenticateToken, async (req, res) => {
+    try {
+        const { fullName, phone, address, city, state, pincode } = req.body;
+        if (!fullName || !phone || !address || !city || !state || !pincode) {
+            return res.status(400).json({ error: "All address fields (Full Name, Phone, Address, City, State, Pincode) are required." });
+        }
+
+        const user = await User.findById(req.user.userId);
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        if (!user.savedAddresses) user.savedAddresses = [];
+        const newAddress = { fullName, phone, address, city, state, pincode };
+        user.savedAddresses.push(newAddress);
+        await user.save();
+
+        res.status(201).json({ message: "Address saved successfully!", addresses: user.savedAddresses });
+    } catch (error) {
+        console.error("Save Address Error:", error);
+        res.status(500).json({ error: "Failed to save address." });
+    }
+});
+
 
 // --- SHOPPING CART ROUTES ---
 app.get('/api/cart', authenticateToken, async (req, res) => {
@@ -228,62 +253,42 @@ app.delete('/api/cart/remove', authenticateToken, async (req, res) => {
 });
 
 
-// --- SHIPROCKET LOGIN VAULT S2S APIs ---
+// --- RAZORPAY CONFIG & ENDPOINTS ---
+app.get('/api/payment/key', (req, res) => {
+    res.json({ key: process.env.RAZORPAY_KEY_ID });
+});
 
-app.post('/api/shiprocket/access-token', authenticateToken, async (req, res) => {
+// --- SHIPROCKET FULFILLMENT & TRACKING ENDPOINTS ---
+app.get('/api/shipping/serviceability', async (req, res) => {
     try {
-        // Shiprocket requires the address flag and a current UTC timestamp payload
-        const payload = {
-            address: true,
-            timestamp: new Date().toISOString()
-        };
-        const payloadString = JSON.stringify(payload); 
-
-        const signature = crypto.createHmac('sha256', process.env.FASTRR_API_SECRET)
-                                .update(payloadString)
-                                .digest('base64');
-
-        const tokenRes = await axios.post('https://checkout-api.shiprocket.com/api/v1/access-token/login', payload, {
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-Api-Key': process.env.FASTRR_API_KEY,
-                'X-Api-HMAC-SHA256': signature
-            }
-        });
-
-        // Extract token securely from nested object fallback
-        const vaultToken = tokenRes.data.result ? tokenRes.data.result.token : tokenRes.data.token;
+        const { deliveryPincode, weight } = req.query;
+        if (!deliveryPincode) return res.status(400).json({ error: "Delivery pincode is required." });
         
-        res.json({ token: vaultToken });
+        const serviceData = await shiprocket.checkServiceability({
+            deliveryPincode,
+            weight: weight ? parseFloat(weight) : 0.4
+        });
+        res.json(serviceData);
     } catch (error) {
-        console.error('Shiprocket Access Token Error:', error.response?.data || error);
-        res.status(500).json({ error: "Failed to generate Shiprocket token." });
+        console.error("Serviceability Error:", error.response?.data || error.message);
+        res.status(500).json({ error: "Failed to check courier serviceability." });
     }
 });
 
-app.post('/api/shiprocket/fetch-address', authenticateToken, async (req, res) => {
+app.get('/api/shipping/track/:orderId', authenticateToken, async (req, res) => {
     try {
-        const { customerToken } = req.body;
-        
-        const payload = { customer_token: customerToken };
-        const payloadString = JSON.stringify(payload);
+        const order = await Order.findOne({ _id: req.params.orderId, userId: req.user.userId });
+        if (!order) return res.status(404).json({ error: "Order not found." });
 
-        const signature = crypto.createHmac('sha256', process.env.FASTRR_API_SECRET)
-                                .update(payloadString)
-                                .digest('base64');
+        if (!order.shiprocketShipmentId) {
+            return res.status(400).json({ error: "Shipment ID not assigned for this order." });
+        }
 
-        const addressRes = await axios.post('https://checkout-api.shiprocket.com/api/v1/customer/address', payload, {
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-Api-Key': process.env.FASTRR_API_KEY,
-                'X-Api-HMAC-SHA256': signature
-            }
-        });
-
-        res.json({ address: addressRes.data.address || addressRes.data });
+        const tracking = await shiprocket.trackShipment(order.shiprocketShipmentId);
+        res.json(tracking);
     } catch (error) {
-        console.error('Shiprocket Fetch Address Error:', error.response?.data || error);
-        res.status(500).json({ error: "Failed to fetch customer address." });
+        console.error("Tracking Error:", error.response?.data || error.message);
+        res.status(500).json({ error: "Failed to fetch tracking details." });
     }
 });
 
@@ -328,36 +333,79 @@ app.post('/api/payment/verify', authenticateToken, async (req, res) => {
                                    .update(sign.toString())
                                    .digest("hex");
 
-        if (razorpay_signature === expectedSign) {
-            const cart = await Cart.findOne({ userId: req.user.userId });
-            if (!cart || cart.items.length === 0) return res.status(400).json({ error: "Cart is empty" });
-
-            let totalAmount = 0;
-            cart.items.forEach(item => {
-                const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
-                totalAmount += numericalPrice * item.quantity;
-            });
-
-            // Aligned with order.js: saving as shippingAddress
-            const newOrder = new Order({
-                userId: req.user.userId,
-                items: cart.items,
-                razorpayPaymentId: razorpay_payment_id,
-                razorpayOrderId: razorpay_order_id,
-                totalAmount: totalAmount,
-                shippingAddress: delivery_address || {} 
-            });
-            await newOrder.save();
-
-            cart.items = [];
-            await cart.save();
-
-            res.json({ message: "Payment verified successfully, order saved!" });
-        } else {
-            res.status(400).json({ error: "Invalid payment signature" });
+        if (razorpay_signature !== expectedSign) {
+            return res.status(400).json({ error: "Invalid payment signature" });
         }
+
+        const cart = await Cart.findOne({ userId: req.user.userId });
+        if (!cart || cart.items.length === 0) return res.status(400).json({ error: "Cart is empty" });
+
+        const user = await User.findById(req.user.userId);
+
+        let totalAmount = 0;
+        cart.items.forEach(item => {
+            const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
+            totalAmount += numericalPrice * item.quantity;
+        });
+
+        const shippingAddr = delivery_address || {};
+
+        const newOrder = new Order({
+            userId: req.user.userId,
+            items: cart.items,
+            razorpayPaymentId: razorpay_payment_id,
+            razorpayOrderId: razorpay_order_id,
+            totalAmount: totalAmount,
+            shippingAddress: shippingAddr,
+            status: 'Processing',
+            shiprocketStatus: 'Pending'
+        });
+
+        // Automatically push order to Shiprocket
+        try {
+            const shiprocketRes = await shiprocket.createOrder({
+                orderId: razorpay_order_id,
+                customerName: shippingAddr.fullName || user?.name || 'Customer',
+                phone: shippingAddr.phone || '9999999999',
+                email: user?.email || 'customer@shuchiva.com',
+                address: shippingAddr.address || 'Address',
+                city: shippingAddr.city || 'City',
+                state: shippingAddr.state || 'State',
+                pincode: shippingAddr.pincode || '248001',
+                items: cart.items,
+                totalAmount: totalAmount
+            });
+
+            if (shiprocketRes && shiprocketRes.shipment_id) {
+                newOrder.shiprocketShipmentId = String(shiprocketRes.shipment_id);
+                newOrder.shiprocketOrderId = String(shiprocketRes.order_id);
+                newOrder.awbCode = shiprocketRes.awb_code || '';
+                newOrder.courierName = shiprocketRes.courier_name || '';
+                newOrder.shiprocketStatus = 'Created';
+                console.log(`Shiprocket Order Created successfully! Shipment ID: ${shiprocketRes.shipment_id}`);
+            } else {
+                newOrder.shiprocketStatus = 'Pending';
+            }
+        } catch (srErr) {
+            console.error('Shiprocket Order Creation Error:', srErr.response?.data || srErr.message);
+            newOrder.shiprocketStatus = 'Failed';
+            newOrder.shiprocketError = srErr.response?.data?.message || srErr.message;
+        }
+
+        await newOrder.save();
+
+        cart.items = [];
+        await cart.save();
+
+        res.json({
+            message: "Payment verified successfully, order saved!",
+            orderId: newOrder._id,
+            shipmentId: newOrder.shiprocketShipmentId,
+            shiprocketStatus: newOrder.shiprocketStatus
+        });
+
     } catch (error) {
-        console.error('Order Saving Error:', error);
+        console.error('Order Processing Error:', error);
         res.status(500).json({ error: "Failed to process order." });
     }
 });
@@ -387,6 +435,109 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
+
+// --- RAZORPAY WEBHOOK FALLBACK ---
+app.post('/api/webhook/razorpay', async (req, res) => {
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET; 
+    const signature = req.headers['x-razorpay-signature'];
+
+    try {
+        if (webhookSecret && signature) {
+            const expectedSignature = crypto
+                .createHmac('sha256', webhookSecret)
+                .update(req.rawBody)
+                .digest('hex');
+
+            if (signature !== expectedSignature) {
+                return res.status(400).json({ error: 'Invalid webhook signature' });
+            }
+        }
+
+        const event = req.body.event;
+
+        if (event === 'order.paid') {
+            const paymentEntity = req.body.payload.payment.entity;
+            const orderEntity = req.body.payload.order.entity;
+            
+            const orderId = paymentEntity.order_id;
+            const paymentId = paymentEntity.id;
+            const userId = orderEntity.receipt ? orderEntity.receipt.replace('receipt_', '') : null;
+
+            if (userId) {
+                const existingOrder = await Order.findOne({ razorpayOrderId: orderId });
+                
+                if (!existingOrder) {
+                    const cart = await Cart.findOne({ userId });
+                    const user = await User.findById(userId);
+                    
+                    if (cart && cart.items.length > 0) {
+                        let totalAmount = 0;
+                        cart.items.forEach(item => {
+                            const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
+                            totalAmount += numericalPrice * item.quantity;
+                        });
+
+                        const defaultAddress = user?.savedAddresses?.[0] || {
+                            fullName: user?.name || "Customer",
+                            phone: paymentEntity.contact || "9999999999",
+                            address: "Contact Address",
+                            city: "City",
+                            state: "State",
+                            pincode: "248001"
+                        };
+
+                        const newOrder = new Order({
+                            userId,
+                            items: cart.items,
+                            razorpayPaymentId: paymentId,
+                            razorpayOrderId: orderId,
+                            totalAmount: totalAmount,
+                            shippingAddress: defaultAddress,
+                            status: 'Processing',
+                            shiprocketStatus: 'Pending'
+                        });
+
+                        try {
+                            const srRes = await shiprocket.createOrder({
+                                orderId,
+                                customerName: defaultAddress.fullName,
+                                phone: defaultAddress.phone,
+                                email: user?.email || paymentEntity.email,
+                                address: defaultAddress.address,
+                                city: defaultAddress.city,
+                                state: defaultAddress.state,
+                                pincode: defaultAddress.pincode,
+                                items: cart.items,
+                                totalAmount
+                            });
+
+                            if (srRes && srRes.shipment_id) {
+                                newOrder.shiprocketShipmentId = String(srRes.shipment_id);
+                                newOrder.shiprocketOrderId = String(srRes.order_id);
+                                newOrder.awbCode = srRes.awb_code || '';
+                                newOrder.courierName = srRes.courier_name || '';
+                                newOrder.shiprocketStatus = 'Created';
+                            }
+                        } catch (srErr) {
+                            newOrder.shiprocketStatus = 'Failed';
+                            newOrder.shiprocketError = srErr.message;
+                        }
+
+                        await newOrder.save();
+                        cart.items = [];
+                        await cart.save();
+                        console.log(`Webhook fallback order processed & saved for user ${userId}`);
+                    }
+                }
+            }
+        }
+
+        res.status(200).json({ status: 'ok' });
+    } catch (error) {
+        console.error('Webhook Error:', error);
+        res.status(500).json({ error: 'Webhook processing failed' });
+    }
+});
 
 // --- RENDER DYNAMIC PORT ASSIGNMENT ---
 const PORT = process.env.PORT || 3000;

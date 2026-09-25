@@ -6,8 +6,6 @@
     <title>Secure Checkout | Shuchiva Essentials</title>
     <!-- Razorpay Checkout Script -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-    <!-- Shiprocket Fastrr SDK -->
-    <script src="https://fastrr-boost-ui.shiprocket.in/fastrr-headless.js"></script>
     <style>
         body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, sans-serif; }
         .cart-wrapper { max-width: 1200px; margin: 4rem auto; padding: 0 2rem; }
@@ -41,6 +39,39 @@
         .checkout-btn:disabled { background-color: #2a5a75; cursor: not-allowed; color: #8b9eb7; }
         
         .empty-cart { text-align: center; color: #a3b3c8; font-size: 1.2rem; padding: 4rem 0; width: 100%; }
+
+        /* --- ADDRESS MODAL STYLES --- */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); z-index: 1000; justify-content: center; align-items: center; padding: 1rem; box-sizing: border-box; backdrop-filter: blur(4px); }
+        .modal-overlay.active { display: flex; }
+        .modal-card { background: #161b22; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; padding: 2rem; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+        .modal-header h2 { margin: 0; font-size: 1.5rem; font-weight: 400; color: #fff; }
+        .modal-close { background: none; border: none; color: #a3b3c8; font-size: 1.5rem; cursor: pointer; line-height: 1; }
+        .modal-close:hover { color: #fff; }
+        
+        .address-option { display: flex; align-items: flex-start; gap: 12px; padding: 1rem; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); margin-bottom: 10px; cursor: pointer; transition: border-color 0.2s, background-color 0.2s; background: #0d1117; }
+        .address-option:hover, .address-option.selected { border-color: #4da8da; background-color: #1c2430; }
+        .address-option input[type="radio"] { margin-top: 4px; accent-color: #4da8da; cursor: pointer; }
+        .address-option-details { font-size: 0.95rem; color: #a3b3c8; line-height: 1.4; }
+        .address-option-details strong { color: #fff; display: block; margin-bottom: 4px; }
+        
+        .new-addr-btn { background: none; border: 1px dashed rgba(255,255,255,0.2); color: #4da8da; width: 100%; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 0.95rem; margin-bottom: 1.5rem; transition: 0.2s; }
+        .new-addr-btn:hover { border-color: #4da8da; background: rgba(77, 168, 218, 0.05); }
+
+        .modal-form { display: none; margin-bottom: 1.5rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1.5rem; }
+        .modal-form.active { display: block; }
+        .form-row { margin-bottom: 12px; }
+        .form-row label { display: block; font-size: 0.85rem; color: #a3b3c8; margin-bottom: 4px; }
+        .form-row input { width: 100%; box-sizing: border-box; padding: 10px 12px; background: #0d1117; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; color: #fff; font-size: 0.95rem; }
+        .form-row input:focus { outline: none; border-color: #4da8da; }
+        .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        .modal-actions { display: flex; gap: 12px; margin-top: 1.5rem; }
+        .modal-btn-cancel { flex: 1; padding: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #a3b3c8; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .modal-btn-pay { flex: 2; padding: 12px; background: #4da8da; border: none; color: #0d1117; border-radius: 6px; cursor: pointer; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .modal-btn-pay:hover { background: #3a8ebd; }
+        .modal-btn-pay:disabled { background: #2a5a75; cursor: not-allowed; }
+        .modal-error { color: #ff6b6b; font-size: 0.9rem; margin-top: 10px; text-align: center; }
     </style>
 </head>
 <body>
@@ -136,7 +167,7 @@
                             <span>Total</span>
                             <span>₹${totalAmount}</span>
                         </div>
-                        <button class="checkout-btn" onclick="initiateShiprocketLogin()">Proceed to Checkout</button>
+                        <button class="checkout-btn" onclick="openAddressModal()">Proceed to Checkout</button>
                     </div>
                 `;
 
@@ -179,133 +210,323 @@
             }
         }
 
-        // --- 1. SHIPROCKET LOGIN IFRAME TRIGGER ---
-        async function initiateShiprocketLogin() {
-            const token = localStorage.getItem('shuchiva_token');
-            if (!token) return alert('Please log in first.');
+        // --- DELIVERY ADDRESS & CHECKOUT LOGIC ---
+        let savedUserAddresses = [];
+        let useNewAddress = false;
 
-            const checkoutBtn = document.querySelector('.checkout-btn');
-            const originalText = checkoutBtn.textContent;
-            checkoutBtn.textContent = "Loading Secure Vault...";
-            checkoutBtn.disabled = true;
+        async function openAddressModal() {
+            const token = localStorage.getItem('shuchiva_token');
+            if (!token) {
+                alert('Please log in to proceed to checkout.');
+                window.location.href = '../auth/login.html';
+                return;
+            }
+
+            const modal = document.getElementById('address-modal');
+            const listDiv = document.getElementById('saved-addresses-list');
+            const form = document.getElementById('new-address-form');
+            const errorBox = document.getElementById('modal-error-box');
+            errorBox.textContent = '';
 
             try {
-                // Request Fastrr Access Token
-                const tokenRes = await fetch('/api/shiprocket/access-token', {
-                    method: 'POST',
+                const res = await fetch('/api/user/addresses', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
-                const tokenData = await tokenRes.json();
-                
-                if (tokenData.error || !tokenData.token) {
-                    throw new Error(tokenData.error || "Failed to retrieve Vault Token");
+                const data = await res.json();
+                savedUserAddresses = data.addresses || [];
+
+                if (savedUserAddresses.length > 0) {
+                    useNewAddress = false;
+                    form.classList.remove('active');
+                    document.getElementById('toggle-new-addr-btn').style.display = 'block';
+
+                    listDiv.innerHTML = savedUserAddresses.map((addr, idx) => `
+                        <label class="address-option ${idx === 0 ? 'selected' : ''}" onclick="selectAddressCard(${idx})">
+                            <input type="radio" name="selected_address" value="${idx}" ${idx === 0 ? 'checked' : ''}>
+                            <div class="address-option-details">
+                                <strong>${addr.fullName} &bull; ${addr.phone}</strong>
+                                ${addr.address}<br>
+                                ${addr.city}, ${addr.state} - ${addr.pincode}
+                            </div>
+                        </label>
+                    `).join('');
+                } else {
+                    // No saved addresses, open the new address form directly
+                    useNewAddress = true;
+                    listDiv.innerHTML = '<p style="color: #a3b3c8; margin-bottom: 1rem; font-size: 0.95rem;">Enter your shipping address for courier delivery:</p>';
+                    form.classList.add('active');
+                    document.getElementById('toggle-new-addr-btn').style.display = 'none';
+
+                    // Prefill name if available
+                    const savedName = localStorage.getItem('shuchiva_user_name');
+                    if (savedName && savedName !== 'Customer') {
+                        document.getElementById('modal-name').value = savedName;
+                    }
                 }
 
-                // Initialize Shiprocket Fastrr Iframe
-                if (typeof HeadlessCheckout !== 'undefined') {
-                    const checkout = new HeadlessCheckout({
-                        token: tokenData.token,
-                        onSuccess: async function (payload) {
-                            
-                            // Ask backend to decrypt the customer_token into the actual address
-                            const addressRes = await fetch('/api/shiprocket/fetch-address', {
+                modal.classList.add('active');
+            } catch (err) {
+                console.error("Failed to fetch addresses:", err);
+                alert("Could not load address details. Please try again.");
+            }
+        }
+
+        function closeAddressModal() {
+            const modal = document.getElementById('address-modal');
+            modal.classList.remove('active');
+        }
+
+        function selectAddressCard(index) {
+            useNewAddress = false;
+            document.querySelectorAll('.address-option').forEach((el, idx) => {
+                el.classList.toggle('selected', idx === index);
+            });
+            const radio = document.querySelector(`input[name="selected_address"][value="${index}"]`);
+            if (radio) radio.checked = true;
+        }
+
+        function toggleNewAddressForm() {
+            const form = document.getElementById('new-address-form');
+            useNewAddress = !useNewAddress;
+            if (useNewAddress) {
+                form.classList.add('active');
+                document.querySelectorAll('input[name="selected_address"]').forEach(r => r.checked = false);
+                document.querySelectorAll('.address-option').forEach(el => el.classList.remove('selected'));
+                document.getElementById('toggle-new-addr-btn').textContent = "Use a saved address above";
+            } else {
+                form.classList.remove('active');
+                if (savedUserAddresses.length > 0) selectAddressCard(0);
+                document.getElementById('toggle-new-addr-btn').textContent = "+ Add New Delivery Address";
+            }
+        }
+
+        async function confirmAddressAndPay() {
+            const token = localStorage.getItem('shuchiva_token');
+            const errorBox = document.getElementById('modal-error-box');
+            errorBox.textContent = '';
+
+            let shippingAddress = null;
+
+            if (useNewAddress || savedUserAddresses.length === 0) {
+                const fullName = document.getElementById('modal-name').value.trim();
+                const phone = document.getElementById('modal-phone').value.trim().replace(/[^0-9]/g, '');
+                const address = document.getElementById('modal-street').value.trim();
+                const city = document.getElementById('modal-city').value.trim();
+                const pincode = document.getElementById('modal-pin').value.trim();
+                const state = document.getElementById('modal-state').value.trim();
+                const shouldSave = document.getElementById('modal-save-addr').checked;
+
+                if (!fullName || !phone || !address || !city || !state || !pincode) {
+                    errorBox.textContent = "Please fill in all address fields.";
+                    return;
+                }
+
+                if (phone.length < 10) {
+                    errorBox.textContent = "Please enter a valid 10-digit phone number.";
+                    return;
+                }
+
+                if (pincode.length !== 6) {
+                    errorBox.textContent = "Please enter a valid 6-digit Indian PIN code.";
+                    return;
+                }
+
+                shippingAddress = { fullName, phone, address, city, state, pincode };
+
+                if (shouldSave) {
+                    // Save address asynchronously
+                    fetch('/api/user/addresses', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify(shippingAddress)
+                    }).catch(console.error);
+                }
+            } else {
+                const checkedRadio = document.querySelector('input[name="selected_address"]:checked');
+                if (!checkedRadio) {
+                    errorBox.textContent = "Please select or add a delivery address.";
+                    return;
+                }
+                const selectedIdx = parseInt(checkedRadio.value, 10);
+                shippingAddress = savedUserAddresses[selectedIdx];
+            }
+
+            if (!shippingAddress) {
+                errorBox.textContent = "Please provide a delivery address.";
+                return;
+            }
+
+            closeAddressModal();
+            triggerRazorpayCheckout(shippingAddress);
+        }
+
+        // --- RAZORPAY NATIVE PAYMENT & SHIPROCKET FULFILLMENT ---
+        async function triggerRazorpayCheckout(shippingAddress) {
+            const token = localStorage.getItem('shuchiva_token');
+            const checkoutBtn = document.querySelector('.checkout-btn');
+            if (checkoutBtn) {
+                checkoutBtn.textContent = "Opening Payment Gateway...";
+                checkoutBtn.disabled = true;
+            }
+
+            try {
+                // 1. Fetch public Razorpay Key & Create Order
+                const [keyRes, orderRes] = await Promise.all([
+                    fetch('/api/payment/key'),
+                    fetch('/api/payment/create-order', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
+
+                const keyData = await keyRes.json();
+                const orderData = await orderRes.json();
+
+                if (orderData.error) {
+                    alert(orderData.error);
+                    if (checkoutBtn) { checkoutBtn.textContent = "Proceed to Checkout"; checkoutBtn.disabled = false; }
+                    return;
+                }
+
+                const razorpayKey = keyData.key;
+                if (!razorpayKey) {
+                    alert("Payment configuration error: Razorpay Key not found.");
+                    if (checkoutBtn) { checkoutBtn.textContent = "Proceed to Checkout"; checkoutBtn.disabled = false; }
+                    return;
+                }
+
+                const options = {
+                    key: razorpayKey,
+                    amount: orderData.amount,
+                    currency: "INR",
+                    name: "Shuchiva Essentials",
+                    description: "Order Checkout & Courier Shipping",
+                    order_id: orderData.id,
+                    prefill: {
+                        name: shippingAddress.fullName || localStorage.getItem('shuchiva_user_name') || "",
+                        contact: shippingAddress.phone || "",
+                        email: ""
+                    },
+                    theme: {
+                        color: "#4da8da"
+                    },
+                    handler: async function (response) {
+                        if (checkoutBtn) checkoutBtn.textContent = "Verifying & Assigning Courier...";
+                        
+                        try {
+                            const verifyRes = await fetch('/api/payment/verify', {
                                 method: 'POST',
                                 headers: { 
                                     'Content-Type': 'application/json',
                                     'Authorization': `Bearer ${token}` 
                                 },
-                                body: JSON.stringify({ customerToken: payload.customer_token })
+                                body: JSON.stringify({
+                                    razorpay_order_id: response.razorpay_order_id,
+                                    razorpay_payment_id: response.razorpay_payment_id,
+                                    razorpay_signature: response.razorpay_signature,
+                                    delivery_address: shippingAddress
+                                })
                             });
-                            
-                            const addressData = await addressRes.json();
-                            
-                            if (addressData.address) {
-                                triggerRazorpayCheckout(addressData.address);
+
+                            const verifyData = await verifyRes.json();
+
+                            if (verifyRes.ok) {
+                                let msg = 'Order placed successfully!';
+                                if (verifyData.shipmentId) {
+                                    msg += `\nShiprocket Shipment ID: ${verifyData.shipmentId}`;
+                                }
+                                alert(msg);
+                                window.location.href = '../account/orders.html';
                             } else {
-                                alert("Failed to extract address from vault.");
+                                alert(verifyData.error || 'Payment verification failed.');
                             }
-                        },
-                        onError: function (err) {
-                            console.error('Shiprocket Login Failed:', err);
-                            alert("Address verification was cancelled or failed.");
-                        }
-                    });
-                    
-                    checkout.init(); 
-                    
-                } else {
-                    alert("Shiprocket SDK is currently unavailable. Please check your network.");
-                }
-
-            } catch (error) {
-                console.error("Vault Error:", error);
-                alert(error.message || "Could not launch address vault.");
-            } finally {
-                checkoutBtn.textContent = originalText;
-                checkoutBtn.disabled = false;
-            }
-        }
-
-        // --- 2. RAZORPAY HANDOFF ---
-        async function triggerRazorpayCheckout(verifiedUserData) {
-            const token = localStorage.getItem('shuchiva_token');
-            
-            try {
-                const res = await fetch('/api/payment/create-order', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const orderData = await res.json();
-                
-                if (orderData.error) return alert(orderData.error);
-
-                const options = {
-                    key: "YOUR_RAZORPAY_KEY_ID", // Add your Live/Test Key ID here
-                    amount: orderData.amount,
-                    currency: "INR",
-                    name: "Shuchiva Essentials",
-                    description: "Secure Checkout",
-                    order_id: orderData.id,
-                    prefill: {
-                        name: verifiedUserData.first_name || localStorage.getItem('shuchiva_user_name'),
-                        contact: verifiedUserData.phone || "",
-                        email: verifiedUserData.email || ""
-                    },
-                    handler: async function (response) {
-                        const verifyRes = await fetch('/api/payment/verify', {
-                            method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}` 
-                            },
-                            body: JSON.stringify({
-                                razorpay_order_id: response.razorpay_order_id,
-                                razorpay_payment_id: response.razorpay_payment_id,
-                                razorpay_signature: response.razorpay_signature,
-                                delivery_address: verifiedUserData // Pass the complete address payload
-                            })
-                        });
-                        
-                        const verifyData = await verifyRes.json();
-                        if (verifyRes.ok && verifyData.message) {
-                            alert('Order placed successfully!');
+                        } catch (err) {
+                            console.error("Verification Error:", err);
+                            alert("Order verification encountered an error. If your amount was deducted, your order will be automatically synced via webhook.");
                             window.location.href = '../account/orders.html';
-                        } else {
-                            alert(verifyData.error || 'Payment verification failed.');
+                        }
+                    },
+                    modal: {
+                        ondismiss: function() {
+                            if (checkoutBtn) {
+                                checkoutBtn.textContent = "Proceed to Checkout";
+                                checkoutBtn.disabled = false;
+                            }
                         }
                     }
                 };
+
                 const rzp = new Razorpay(options);
                 rzp.open();
+
             } catch (error) {
                 console.error("Checkout Error:", error);
-                alert('Failed to launch payment gateway.');
+                alert("Failed to initiate payment gateway. Please check your connection.");
+                if (checkoutBtn) {
+                    checkoutBtn.textContent = "Proceed to Checkout";
+                    checkoutBtn.disabled = false;
+                }
             }
         }
 
         loadCart();
     </script>
+
+    <!-- Delivery Address Modal -->
+    <div class="modal-overlay" id="address-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2>Delivery Address</h2>
+                <button class="modal-close" onclick="closeAddressModal()">&times;</button>
+            </div>
+            
+            <div id="saved-addresses-list">
+                <!-- Dynamically loaded saved addresses -->
+            </div>
+
+            <button type="button" class="new-addr-btn" id="toggle-new-addr-btn" onclick="toggleNewAddressForm()">+ Add New Delivery Address</button>
+
+            <form id="new-address-form" class="modal-form" onsubmit="event.preventDefault(); confirmAddressAndPay();">
+                <div class="form-row">
+                    <label>Full Name *</label>
+                    <input type="text" id="modal-name" placeholder="Receiver's full name" required>
+                </div>
+                <div class="form-row">
+                    <label>Phone Number (10 digits) *</label>
+                    <input type="tel" id="modal-phone" maxlength="10" placeholder="e.g. 9876543210" required>
+                </div>
+                <div class="form-row">
+                    <label>Street Address / Flat / Building *</label>
+                    <input type="text" id="modal-street" placeholder="House/Flat No., Street, Landmark" required>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label>City *</label>
+                        <input type="text" id="modal-city" placeholder="City" required>
+                    </div>
+                    <div class="form-row">
+                        <label>Pincode *</label>
+                        <input type="text" id="modal-pin" maxlength="6" placeholder="6-digit PIN" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label>State *</label>
+                    <input type="text" id="modal-state" placeholder="State" required>
+                </div>
+                <div class="form-row" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+                    <input type="checkbox" id="modal-save-addr" checked style="width: auto;">
+                    <label for="modal-save-addr" style="margin: 0; color: #fff; cursor: pointer;">Save this address for future orders</label>
+                </div>
+            </form>
+
+            <div class="modal-error" id="modal-error-box"></div>
+
+            <div class="modal-actions">
+                <button type="button" class="modal-btn-cancel" onclick="closeAddressModal()">Cancel</button>
+                <button type="button" class="modal-btn-pay" id="confirm-pay-btn" onclick="confirmAddressAndPay()">Proceed to Payment</button>
+            </div>
+        </div>
+    </div>
 
     <script src="../homepage/toolbar.js"></script>
 </body>

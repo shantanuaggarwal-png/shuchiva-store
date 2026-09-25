@@ -20,6 +20,12 @@
         
         .order-total { text-align: right; margin-top: 1rem; font-size: 1.2rem; font-weight: 700; color: #fff; }
         .empty-state { text-align: center; color: #a3b3c8; padding: 3rem 0; font-size: 1.1rem; }
+        
+        .shipping-info { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 0.9rem; color: #8b9eb7; }
+        .shiprocket-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(77, 168, 218, 0.1); border: 1px solid rgba(77, 168, 218, 0.3); color: #4da8da; padding: 4px 10px; border-radius: 4px; font-size: 0.85rem; }
+        .track-btn { background: #4da8da; color: #0d1117; border: none; padding: 6px 14px; border-radius: 4px; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: 0.2s; }
+        .track-btn:hover { background: #3a8ebd; }
+        .tracking-result { width: 100%; margin-top: 10px; padding: 10px 14px; background: #0d1117; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); font-size: 0.85rem; color: #a3b3c8; display: none; }
     </style>
 </head>
 <body>
@@ -81,8 +87,28 @@
                         `;
                     });
 
+                    const addr = order.shippingAddress || {};
+                    const addrText = addr.address ? `${addr.fullName || 'Recipient'}, ${addr.address}, ${addr.city || ''} ${addr.pincode || ''}` : 'Address on file';
+                    
+                    let shipmentBadgeHtml = '';
+                    let trackBtnHtml = '';
+
+                    if (order.shiprocketShipmentId) {
+                        shipmentBadgeHtml = `
+                            <div class="shiprocket-badge">
+                                <span>&#128230; Shiprocket ID: <strong>${order.shiprocketShipmentId}</strong></span>
+                                ${order.awbCode ? `&bull; AWB: <strong>${order.awbCode}</strong>` : ''}
+                            </div>
+                        `;
+                        trackBtnHtml = `<button class="track-btn" onclick="trackOrder('${order._id}', this)">Track Package</button>`;
+                    } else if (order.shiprocketStatus === 'Created') {
+                        shipmentBadgeHtml = `<div class="shiprocket-badge"><span>&#128230; Processing Courier</span></div>`;
+                    } else if (order.shiprocketStatus === 'Failed') {
+                        shipmentBadgeHtml = `<span style="color: #ffaa00; font-size: 0.85rem;">Courier Dispatch: Awaiting Manual Sync</span>`;
+                    }
+
                     html += `
-                        <div class="order-card">
+                        <div class="order-card" id="card-${order._id}">
                             <div class="order-header">
                                 <div>
                                     <strong>Order Placed:</strong> ${date} <br>
@@ -92,6 +118,14 @@
                             </div>
                             ${itemsHtml}
                             <div class="order-total">Total Paid: ₹${order.totalAmount}</div>
+                            <div class="shipping-info">
+                                <div>
+                                    <div style="color: #fff; margin-bottom: 4px;">Delivering to: ${addrText}</div>
+                                    ${shipmentBadgeHtml}
+                                </div>
+                                ${trackBtnHtml}
+                                <div class="tracking-result" id="tracking-${order._id}"></div>
+                            </div>
                         </div>
                     `;
                 });
@@ -99,7 +133,52 @@
                 container.innerHTML = html;
 
             } catch (error) {
+                console.error("Orders Error:", error);
                 container.innerHTML = `<div class="empty-state" style="color: #ff6b6b;">Failed to load order history.</div>`;
+            }
+        }
+
+        async function trackOrder(orderId, btn) {
+            const token = localStorage.getItem('shuchiva_token');
+            const resultDiv = document.getElementById(`tracking-${orderId}`);
+            if (!resultDiv) return;
+
+            if (resultDiv.style.display === 'block') {
+                resultDiv.style.display = 'none';
+                btn.textContent = "Track Package";
+                return;
+            }
+
+            btn.textContent = "Checking...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/shipping/track/${orderId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                resultDiv.style.display = 'block';
+
+                if (data.tracking_data) {
+                    const track = data.tracking_data;
+                    const statusText = track.shipment_track?.[0]?.current_status || track.track_status ? "Active" : "Processing";
+                    resultDiv.innerHTML = `
+                        <strong>Current Status:</strong> <span style="color: #4da8da;">${statusText}</span><br>
+                        ${track.shipment_track?.[0]?.origin ? `<strong>Origin:</strong> ${track.shipment_track[0].origin} &rarr; <strong>Destination:</strong> ${track.shipment_track[0].destination}<br>` : ''}
+                        ${track.shipment_track?.[0]?.courier_name ? `<strong>Courier:</strong> ${track.shipment_track[0].courier_name}<br>` : ''}
+                    `;
+                } else if (data.error) {
+                    resultDiv.innerHTML = `<span style="color: #ffaa00;">${data.error}</span>`;
+                } else {
+                    resultDiv.innerHTML = `<span>Order is in transit preparation at Dehradun fulfillment warehouse.</span>`;
+                }
+            } catch (err) {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `<span style="color: #ff6b6b;">Unable to fetch real-time tracking at this moment.</span>`;
+            } finally {
+                btn.textContent = "Hide Tracking";
+                btn.disabled = false;
             }
         }
 
