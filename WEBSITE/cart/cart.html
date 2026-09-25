@@ -6,8 +6,6 @@
     <title>Secure Checkout | Shuchiva Essentials</title>
     <!-- Razorpay Checkout Script -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-    <!-- Shiprocket Fastrr Headless Login Script -->
-    <script src="https://fastrr-boost-ui.pickrr.com/assets/js/channels/login.js"></script>
     <style>
         body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, sans-serif; }
         .cart-wrapper { max-width: 1200px; margin: 4rem auto; padding: 0 2rem; }
@@ -369,6 +367,10 @@
 
         // --- SHIPROCKET FASTRR 1-CLICK OTP LOGIN ---
         async function triggerFastrrLogin(event) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
             const btn = document.getElementById('fastrr-trigger-btn');
             const originalHTML = btn ? btn.innerHTML : '⚡ OTP Login';
             const errorBox = document.getElementById('modal-error-box');
@@ -388,75 +390,37 @@
                     throw new Error(tokenData.error || "Unable to initialize Fastrr session.");
                 }
 
-                // Wait for HeadlessCheckout / ShiprocketLogin library if still loading
-                const checkoutLib = window.HeadlessCheckout || window.ShiprocketLogin;
-                if (!checkoutLib || typeof checkoutLib.login !== 'function') {
-                    throw new Error("Fastrr checkout service is loading, please try again in a few seconds.");
-                }
+                const token = tokenData.token;
 
-                checkoutLib.login(
-                    event,
-                    tokenData.token,
-                    {
-                        domain: window.location.hostname || 'shuchiva-store.onrender.com',
-                        redirection_url: window.location.href,
-                        themecolor: '#4da8da'
-                    },
-                    function (customerData) {
-                        console.log("Fastrr login callback received:", customerData);
-                        if (btn) {
-                            btn.disabled = false;
-                            btn.innerHTML = originalHTML;
-                        }
+                // 2. Prepare Channel and Cart payloads
+                const channelData = {
+                    channel_id: 119,
+                    channel_code: "SH",
+                    seller_id: 1,
+                    sr_company_id: "704",
+                    shop_name: "Shuchiva Essentials",
+                    shop_url: window.location.hostname || "shuchiva-store.onrender.com",
+                    redirectUrl: window.location.href
+                };
+                const encodedChannel = window.btoa(encodeURIComponent(JSON.stringify(channelData)));
+                const encodedCart = window.btoa(encodeURIComponent(JSON.stringify([]))); // "JTVCJTVE"
 
-                        if (!customerData) return;
+                // 3. Construct Fastrr Application URL
+                const fastrrUrl = `https://fastrr-boost-ui.pickrr.com/?channel=${encodedChannel}&type=product&platform=WOOCOMMERCE&cart=${encodedCart}&customToken=${token}&customCheckoutToken=${token}&login=sr-login&themeColor=%234da8da`;
 
-                        // Extract address & contact details flexibly across Fastrr payload schemas
-                        const customer = customerData.customer || customerData.user || {};
-                        const addr = (Array.isArray(customerData.addresses) && customerData.addresses[0]) || 
-                                     customerData.address || 
-                                     customerData.shipping_address || 
-                                     customerData;
+                // 4. Open Fastrr Modal Overlay
+                const overlay = document.getElementById('fastrr-iframe-overlay');
+                const iframe = document.getElementById('fastrr-iframe');
+                const loader = document.getElementById('fastrr-loader');
 
-                        const name = (addr.fullName || addr.name || customer.name || 
-                                     `${customer.first_name || customerData.first_name || ''} ${customer.last_name || customerData.last_name || ''}`.trim() || 
-                                     '').trim();
-                        const phone = (addr.phone || addr.contact || customer.phone || customerData.phone || '').toString().replace(/[^0-9]/g, '');
-                        const street = (addr.address || addr.address1 || addr.street || addr.street_address || '').trim();
-                        const city = (addr.city || '').trim();
-                        const state = (addr.state || '').trim();
-                        const pincode = (addr.pincode || addr.pin || addr.zipcode || '').toString().trim();
+                if (loader) loader.style.display = 'flex';
+                if (iframe) iframe.src = fastrrUrl;
+                if (overlay) overlay.style.display = 'flex';
 
-                        // Switch to new address form and populate
-                        useNewAddress = true;
-                        const form = document.getElementById('new-address-form');
-                        form.classList.add('active');
-                        document.querySelectorAll('input[name="selected_address"]').forEach(r => r.checked = false);
-                        document.querySelectorAll('.address-option').forEach(el => el.classList.remove('selected'));
-                        const toggleBtn = document.getElementById('toggle-new-addr-btn');
-                        if (toggleBtn) toggleBtn.textContent = "Use a saved address above";
-
-                        if (name) document.getElementById('modal-name').value = name;
-                        if (phone) document.getElementById('modal-phone').value = phone.slice(-10);
-                        if (street) document.getElementById('modal-street').value = street;
-                        if (city) document.getElementById('modal-city').value = city;
-                        if (state) document.getElementById('modal-state').value = state;
-                        if (pincode) document.getElementById('modal-pin').value = pincode;
-
-                        // Asynchronously save this address to user profile if logged in
-                        const token = localStorage.getItem('shuchiva_token');
-                        if (token && name && phone && street && pincode) {
-                            fetch('/api/user/addresses', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                                body: JSON.stringify({ fullName: name, phone: phone.slice(-10), address: street, city, state, pincode })
-                            }).catch(console.error);
-                        }
-                    }
-                );
             } catch (err) {
                 console.error("Fastrr Error:", err);
                 if (errorBox) errorBox.textContent = err.message || "Failed to start Fastrr mobile login.";
+                alert(err.message || "Could not launch Fastrr. Please enter your address below.");
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -464,6 +428,84 @@
                 }
             }
         }
+
+        function closeFastrrModal() {
+            const overlay = document.getElementById('fastrr-iframe-overlay');
+            const iframe = document.getElementById('fastrr-iframe');
+            if (overlay) overlay.style.display = 'none';
+            if (iframe) iframe.src = '';
+        }
+
+        function handleFastrrAddressSuccess(payload) {
+            console.log("Fastrr Success Payload:", payload);
+            if (!payload) return;
+
+            // Extract address & contact details flexibly across Fastrr payload schemas
+            const root = payload.data || payload.result || payload;
+            const customer = root.customer || root.user || {};
+            const addr = (Array.isArray(root.addresses) && root.addresses[0]) || 
+                         root.address || 
+                         root.shipping_address || 
+                         root;
+
+            const name = (addr.fullName || addr.name || customer.name || 
+                         `${addr.first_name || customer.first_name || root.first_name || ''} ${addr.last_name || customer.last_name || root.last_name || ''}`.trim() || 
+                         '').trim();
+            const phone = (addr.phone || addr.contact || customer.phone || root.phone || '').toString().replace(/[^0-9]/g, '');
+            const street = (addr.address || addr.address1 || addr.street || addr.street_address || '').trim();
+            const city = (addr.city || '').trim();
+            const state = (addr.state || '').trim();
+            const pincode = (addr.pincode || addr.pin || addr.zipcode || '').toString().trim();
+
+            // Switch to new address form and populate
+            useNewAddress = true;
+            const form = document.getElementById('new-address-form');
+            if (form) form.classList.add('active');
+            document.querySelectorAll('input[name="selected_address"]').forEach(r => r.checked = false);
+            document.querySelectorAll('.address-option').forEach(el => el.classList.remove('selected'));
+            const toggleBtn = document.getElementById('toggle-new-addr-btn');
+            if (toggleBtn) toggleBtn.textContent = "Use a saved address above";
+
+            if (name) document.getElementById('modal-name').value = name;
+            if (phone) document.getElementById('modal-phone').value = phone.slice(-10);
+            if (street) document.getElementById('modal-street').value = street;
+            if (city) document.getElementById('modal-city').value = city;
+            if (state) document.getElementById('modal-state').value = state;
+            if (pincode) document.getElementById('modal-pin').value = pincode;
+
+            // Asynchronously save this address to user profile if logged in
+            const token = localStorage.getItem('shuchiva_token');
+            if (token && name && phone && street && pincode) {
+                fetch('/api/user/addresses', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ fullName: name, phone: phone.slice(-10), address: street, city, state, pincode })
+                }).catch(console.error);
+            }
+        }
+
+        // Global message listener for Fastrr iframe events
+        window.addEventListener('message', function (event) {
+            const data = event.data;
+            if (!data) return;
+
+            // When Fastrr UI finishes rendering, hide our preloader
+            if (data.trigger === 'hide-pre-loader') {
+                const loader = document.getElementById('fastrr-loader');
+                if (loader) loader.style.display = 'none';
+            }
+
+            // When user closes Fastrr
+            if (data.trigger === 'headless-close') {
+                closeFastrrModal();
+            }
+
+            // When Fastrr OTP & Address retrieval completes
+            if (data.trigger === 'headless-custom-complete' || data.trigger === 'headless-complete') {
+                closeFastrrModal();
+                handleFastrrAddressSuccess(data.data);
+            }
+        });
 
         async function confirmAddressAndPay() {
             const token = localStorage.getItem('shuchiva_token');
@@ -705,6 +747,35 @@
             </div>
         </div>
     </div>
+
+    <!-- Dedicated Shiprocket Fastrr Express Checkout Modal -->
+    <div id="fastrr-iframe-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 999999; align-items: center; justify-content: center;">
+        <div style="position: relative; width: 95%; max-width: 440px; height: 90vh; max-height: 680px; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.8); display: flex; flex-direction: column;">
+            <!-- Modal Header -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; background: #0d1117; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #4da8da; font-size: 1.05rem; font-weight: 700;">⚡ Shiprocket Fastrr</span>
+                    <span style="font-size: 0.75rem; color: #8b9eb7; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">Express Verification</span>
+                </div>
+                <button type="button" onclick="closeFastrrModal()" style="background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; line-height: 1; padding: 0 4px;">&times;</button>
+            </div>
+            
+            <!-- Preloader Animation -->
+            <div id="fastrr-loader" style="position: absolute; top: 50px; left: 0; right: 0; bottom: 0; background: #ffffff; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10;">
+                <div style="width: 42px; height: 42px; border: 4px solid rgba(77,168,218,0.2); border-top-color: #4da8da; border-radius: 50%; animation: fastrr-spin 0.8s linear infinite;"></div>
+                <div style="margin-top: 16px; font-size: 0.95rem; color: #161b22; font-weight: 600;">Connecting to Shiprocket Fastrr...</div>
+                <div style="font-size: 0.8rem; color: #6e7681; margin-top: 4px;">Opening secure OTP gateway</div>
+            </div>
+
+            <!-- Fastrr Embed Iframe -->
+            <iframe id="fastrr-iframe" src="" style="width: 100%; height: 100%; border: none; background: #ffffff;" allow="geolocation; clipboard-read; clipboard-write; web-share"></iframe>
+        </div>
+    </div>
+    <style>
+        @keyframes fastrr-spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 
     <script src="../homepage/toolbar.js"></script>
 </body>
