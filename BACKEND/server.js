@@ -39,7 +39,7 @@ app.use(express.static(path.join(__dirname, '../WEBSITE'), {
     }
 }));
 
-// --- SHIPROCKET FASTRR HEADLESS ACCESS TOKEN (v1.2) ---
+// --- SHIPROCKET FASTRR HEADLESS ACCESS TOKEN (v1.3 - timeout fallback) ---
 app.all('/api/shiprocket/access-token', async (req, res) => {
     try {
         const apiKey = process.env.FASTRR_API_KEY;

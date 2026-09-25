@@ -417,6 +417,26 @@
                 if (iframe) iframe.src = fastrrUrl;
                 if (overlay) overlay.style.display = 'flex';
 
+                // Graceful fallback: If Fastrr's remote CDN takes > 5s or encounters an internal backend error, fallback to address form
+                if (window._fastrrTimer) clearTimeout(window._fastrrTimer);
+                window._fastrrTimer = setTimeout(() => {
+                    const currentOverlay = document.getElementById('fastrr-iframe-overlay');
+                    if (currentOverlay && currentOverlay.style.display === 'flex') {
+                        closeFastrrModal();
+                        const errorBox = document.getElementById('modal-error-box');
+                        if (errorBox) {
+                            errorBox.textContent = "Fastrr is verifying your merchant domain. Please fill your delivery address below to continue.";
+                        }
+                        useNewAddress = true;
+                        const form = document.getElementById('new-address-form');
+                        if (form) form.classList.add('active');
+                        const toggleBtn = document.getElementById('toggle-new-addr-btn');
+                        if (toggleBtn) toggleBtn.textContent = "Use a saved address above";
+                        const nameField = document.getElementById('modal-name');
+                        if (nameField) nameField.focus();
+                    }
+                }, 5000);
+
             } catch (err) {
                 console.error("Fastrr Error:", err);
                 if (errorBox) errorBox.textContent = err.message || "Failed to start Fastrr mobile login.";
@@ -430,6 +450,7 @@
         }
 
         function closeFastrrModal() {
+            if (window._fastrrTimer) clearTimeout(window._fastrrTimer);
             const overlay = document.getElementById('fastrr-iframe-overlay');
             const iframe = document.getElementById('fastrr-iframe');
             if (overlay) overlay.style.display = 'none';
