@@ -28,8 +28,24 @@ app.use(express.json({
     }
 }));
 
-// --- SERVE STATIC FRONTEND FILES ---
-app.use(express.static(path.join(__dirname, '../WEBSITE')));
+// --- SERVE STATIC FRONTEND FILES WITH CACHE CONTROL ---
+app.use(express.static(path.join(__dirname, '../WEBSITE'), {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+    }
+}));
+
+// Backward compatibility for cached browser sessions
+app.all('/api/shiprocket/access-token', (req, res) => {
+    res.status(200).json({ error: "A new version of checkout is available. Please reload the page." });
+});
+app.all('/api/shiprocket/fetch-address', (req, res) => {
+    res.status(200).json({ error: "A new version of checkout is available. Please reload the page." });
+});
 
 // Redirect root domain to the homepage
 app.get('/', (req, res) => {
@@ -537,6 +553,11 @@ app.post('/api/webhook/razorpay', async (req, res) => {
         console.error('Webhook Error:', error);
         res.status(500).json({ error: 'Webhook processing failed' });
     }
+});
+
+// Fallback for unmatched /api routes to always return clean JSON
+app.use('/api', (req, res) => {
+    res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
 });
 
 // --- RENDER DYNAMIC PORT ASSIGNMENT ---
