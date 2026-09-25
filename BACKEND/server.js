@@ -39,12 +39,45 @@ app.use(express.static(path.join(__dirname, '../WEBSITE'), {
     }
 }));
 
-// Backward compatibility for cached browser sessions
-app.all('/api/shiprocket/access-token', (req, res) => {
-    res.status(200).json({ error: "A new version of checkout is available. Please reload the page." });
-});
-app.all('/api/shiprocket/fetch-address', (req, res) => {
-    res.status(200).json({ error: "A new version of checkout is available. Please reload the page." });
+// --- SHIPROCKET FASTRR HEADLESS ACCESS TOKEN ---
+app.all('/api/shiprocket/access-token', async (req, res) => {
+    try {
+        const apiKey = process.env.FASTRR_API_KEY;
+        const apiSecret = process.env.FASTRR_API_SECRET;
+
+        if (!apiKey || !apiSecret) {
+            return res.status(500).json({ error: "Fastrr API credentials not configured on the server." });
+        }
+
+        const payload = {
+            address: true,
+            timestamp: new Date().toISOString()
+        };
+        const payloadString = JSON.stringify(payload);
+        const signature = crypto.createHmac('sha256', apiSecret).update(payloadString).digest('base64');
+
+        const response = await axios.post('https://checkout-api.shiprocket.com/api/v1/access-token/login', payload, {
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Api-Key': apiKey,
+                'X-Api-HMAC-SHA256': signature
+            },
+            timeout: 8000
+        });
+
+        if (response.data && response.data.ok && response.data.result) {
+            return res.json({ token: response.data.result.token });
+        } else if (response.data && response.data.token) {
+            return res.json({ token: response.data.token });
+        } else {
+            return res.status(502).json({ error: "Invalid response from Fastrr API", details: response.data });
+        }
+    } catch (err) {
+        console.error("Fastrr access token error:", err.response?.data || err.message);
+        return res.status(err.response?.status || 500).json({
+            error: err.response?.data?.message || err.response?.data?.error || "Failed to generate Fastrr access token."
+        });
+    }
 });
 
 // Redirect root domain to the homepage

@@ -6,6 +6,8 @@
     <title>Secure Checkout | Shuchiva Essentials</title>
     <!-- Razorpay Checkout Script -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <!-- Shiprocket Fastrr Headless Login Script -->
+    <script src="https://fastrr-boost-ui.pickrr.com/assets/js/channels/login.js"></script>
     <style>
         body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, sans-serif; }
         .cart-wrapper { max-width: 1200px; margin: 4rem auto; padding: 0 2rem; }
@@ -70,8 +72,63 @@
         .modal-btn-cancel { flex: 1; padding: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #a3b3c8; border-radius: 6px; cursor: pointer; font-weight: 600; }
         .modal-btn-pay { flex: 2; padding: 12px; background: #4da8da; border: none; color: #0d1117; border-radius: 6px; cursor: pointer; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
         .modal-btn-pay:hover { background: #3a8ebd; }
-        .modal-btn-pay:disabled { background: #2a5a75; cursor: not-allowed; }
         .modal-error { color: #ff6b6b; font-size: 0.9rem; margin-top: 10px; text-align: center; }
+
+        /* Shiprocket Fastrr Express Login Styling */
+        .fastrr-login-box {
+            background: linear-gradient(135deg, rgba(77, 168, 218, 0.12), rgba(128, 0, 32, 0.2));
+            border: 1px solid rgba(77, 168, 218, 0.35);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .fastrr-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .fastrr-info-title {
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .fastrr-info-subtitle {
+            font-size: 0.8rem;
+            color: #a3b3c8;
+        }
+        .fastrr-btn {
+            background: linear-gradient(135deg, #4da8da, #3a8ebd);
+            color: #0d1117;
+            font-weight: 700;
+            border: none;
+            padding: 9px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            white-space: nowrap;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 8px rgba(77, 168, 218, 0.25);
+        }
+        .fastrr-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(77, 168, 218, 0.4);
+            background: #5bb3e3;
+        }
+        .fastrr-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
     </style>
 </head>
 <body>
@@ -310,6 +367,104 @@
             }
         }
 
+        // --- SHIPROCKET FASTRR 1-CLICK OTP LOGIN ---
+        async function triggerFastrrLogin(event) {
+            const btn = document.getElementById('fastrr-trigger-btn');
+            const originalHTML = btn ? btn.innerHTML : '⚡ OTP Login';
+            const errorBox = document.getElementById('modal-error-box');
+            if (errorBox) errorBox.textContent = '';
+
+            try {
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span>Connecting...</span>';
+                }
+
+                // 1. Fetch Fastrr access token from our backend S2S endpoint
+                const tokenRes = await fetch('/api/shiprocket/access-token', { method: 'POST' });
+                const tokenData = await parseJsonResponse(tokenRes);
+
+                if (!tokenData || !tokenData.token) {
+                    throw new Error(tokenData.error || "Unable to initialize Fastrr session.");
+                }
+
+                // Wait for HeadlessCheckout / ShiprocketLogin library if still loading
+                const checkoutLib = window.HeadlessCheckout || window.ShiprocketLogin;
+                if (!checkoutLib || typeof checkoutLib.login !== 'function') {
+                    throw new Error("Fastrr checkout service is loading, please try again in a few seconds.");
+                }
+
+                checkoutLib.login(
+                    event,
+                    tokenData.token,
+                    {
+                        domain: window.location.hostname || 'shuchiva-store.onrender.com',
+                        redirection_url: window.location.href,
+                        themecolor: '#4da8da'
+                    },
+                    function (customerData) {
+                        console.log("Fastrr login callback received:", customerData);
+                        if (btn) {
+                            btn.disabled = false;
+                            btn.innerHTML = originalHTML;
+                        }
+
+                        if (!customerData) return;
+
+                        // Extract address & contact details flexibly across Fastrr payload schemas
+                        const customer = customerData.customer || customerData.user || {};
+                        const addr = (Array.isArray(customerData.addresses) && customerData.addresses[0]) || 
+                                     customerData.address || 
+                                     customerData.shipping_address || 
+                                     customerData;
+
+                        const name = (addr.fullName || addr.name || customer.name || 
+                                     `${customer.first_name || customerData.first_name || ''} ${customer.last_name || customerData.last_name || ''}`.trim() || 
+                                     '').trim();
+                        const phone = (addr.phone || addr.contact || customer.phone || customerData.phone || '').toString().replace(/[^0-9]/g, '');
+                        const street = (addr.address || addr.address1 || addr.street || addr.street_address || '').trim();
+                        const city = (addr.city || '').trim();
+                        const state = (addr.state || '').trim();
+                        const pincode = (addr.pincode || addr.pin || addr.zipcode || '').toString().trim();
+
+                        // Switch to new address form and populate
+                        useNewAddress = true;
+                        const form = document.getElementById('new-address-form');
+                        form.classList.add('active');
+                        document.querySelectorAll('input[name="selected_address"]').forEach(r => r.checked = false);
+                        document.querySelectorAll('.address-option').forEach(el => el.classList.remove('selected'));
+                        const toggleBtn = document.getElementById('toggle-new-addr-btn');
+                        if (toggleBtn) toggleBtn.textContent = "Use a saved address above";
+
+                        if (name) document.getElementById('modal-name').value = name;
+                        if (phone) document.getElementById('modal-phone').value = phone.slice(-10);
+                        if (street) document.getElementById('modal-street').value = street;
+                        if (city) document.getElementById('modal-city').value = city;
+                        if (state) document.getElementById('modal-state').value = state;
+                        if (pincode) document.getElementById('modal-pin').value = pincode;
+
+                        // Asynchronously save this address to user profile if logged in
+                        const token = localStorage.getItem('shuchiva_token');
+                        if (token && name && phone && street && pincode) {
+                            fetch('/api/user/addresses', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                body: JSON.stringify({ fullName: name, phone: phone.slice(-10), address: street, city, state, pincode })
+                            }).catch(console.error);
+                        }
+                    }
+                );
+            } catch (err) {
+                console.error("Fastrr Error:", err);
+                if (errorBox) errorBox.textContent = err.message || "Failed to start Fastrr mobile login.";
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                }
+            }
+        }
+
         async function confirmAddressAndPay() {
             const token = localStorage.getItem('shuchiva_token');
             const errorBox = document.getElementById('modal-error-box');
@@ -490,6 +645,19 @@
                 <button class="modal-close" onclick="closeAddressModal()">&times;</button>
             </div>
             
+            <!-- Fastrr 1-Click Mobile Login Box -->
+            <div class="fastrr-login-box">
+                <div class="fastrr-info">
+                    <div class="fastrr-info-title">
+                        <span>⚡ Express Checkout (Fastrr)</span>
+                    </div>
+                    <div class="fastrr-info-subtitle">Auto-fill saved address using Mobile OTP</div>
+                </div>
+                <button type="button" class="fastrr-btn" id="fastrr-trigger-btn" onclick="triggerFastrrLogin(event)">
+                    <span>⚡ OTP Login</span>
+                </button>
+            </div>
+
             <div id="saved-addresses-list">
                 <!-- Dynamically loaded saved addresses -->
             </div>
