@@ -58,7 +58,7 @@ class SiteToolbar extends HTMLElement {
                 </div>
                 
                <a href="${root}homepage/about.html">About Us</a>
-               <a href="${root}homepage/contact.html">Contact</a>
+               <a href="${root}homepage/contact.html">Contact Us</a>
                 
                 <a href="${root}cart/cart.html" id="cart-nav-btn" style="margin-left: 1.5rem; display: flex; align-items: center; gap: 5px; color: #fff; text-decoration: none;">
                     <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4m-.4 8l1.35 5.4A2 2 0 008.3 20h7.4a2 2 0 001.95-1.56L19 13H7z"></path><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle></svg>
