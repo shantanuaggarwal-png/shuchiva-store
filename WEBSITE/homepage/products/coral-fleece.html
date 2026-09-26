@@ -180,12 +180,13 @@
 
         renderProduct();
     </script>
-    <!-- APPLE-STYLE SCROLL ANIMATIONS (GSAP) -->
+        <!-- APPLE-STYLE SCROLL ANIMATIONS (GSAP) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script>
         if (typeof gsap !== 'undefined') {
-            gsap.from(".product-gallery, .product-details > *, .single-product-container > *", {
-                y: 30,
+            // Target every individual element to create a beautiful staggered cascade
+            gsap.from("nav, .main-image-display, .thumb-box, .product-details > h1, .option-selector, .price-tag, .description-box, .amazon-btn, footer", {
+                y: 40,
                 opacity: 0,
                 duration: 0.8,
                 stagger: 0.1,
@@ -196,3 +197,4 @@
     </script>
 </body>
 </html>
+
