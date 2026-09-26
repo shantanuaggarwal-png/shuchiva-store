@@ -231,16 +231,15 @@
         }
         #debug-banner.show { display: block; }
 
-        /* --- CATALOG PLACEHOLDER SECTION --- */
+        /* --- CATALOG SECTION --- */
         .catalog-section {
-            height: 80vh;
+            min-height: 80vh;
             background-color: #161b22;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
             text-align: center;
-            padding: 2rem;
+            padding: 5rem 2rem;
         }
 
         .catalog-section h2 {
@@ -249,8 +248,58 @@
             margin-bottom: 1rem;
         }
 
-        .catalog-section p {
+        .catalog-section > p {
             color: #a3b3c8;
+            max-width: 600px;
+            margin-bottom: 3rem;
+            line-height: 1.5;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .product-card {
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: left;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            border-color: #4da8da;
+        }
+
+        .product-card h3 {
+            font-size: 1.4rem;
+            color: #fff;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+
+        .product-card .gsm {
+            display: inline-block;
+            background: rgba(77, 168, 218, 0.15);
+            color: #4da8da;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+
+        .product-card p {
+            font-size: 0.95rem;
+            color: #a3b3c8;
+            line-height: 1.5;
+            margin-bottom: 0;
         }
 
         footer {
@@ -282,8 +331,31 @@
     </div>
 
     <div class="catalog-section" id="about">
-        <h2>Explore The Rest of the Collection</h2>
-        <p>Use the navigation menu above to view our product categories.</p>
+        <h2>Our Signature Collection</h2>
+        <p>Engineered for quality with a highly effective blend of 80% Polyester and 20% Polyamide, ensuring exceptional durability and softness.</p>
+        
+        <div class="products-grid">
+            <!-- Product 1 -->
+            <div class="product-card">
+                <h3>Multipurpose Cloths</h3>
+                <span class="gsm">400 GSM</span>
+                <p>Featuring a weft silky finish for soft, everyday absorbency. Perfect for kitchen spaces, optical care, and general household maintenance.</p>
+            </div>
+            
+            <!-- Product 2 -->
+            <div class="product-card">
+                <h3>Coral Fleece</h3>
+                <span class="gsm">550 GSM</span>
+                <p>Designed with edgeless ultrasonic cuts for scratch-free, quick-drying performance. Ideal for sensitive surfaces and skin care.</p>
+            </div>
+            
+            <!-- Product 3 -->
+            <div class="product-card">
+                <h3>Dual-Sided Coral Fleece</h3>
+                <span class="gsm">800 GSM</span>
+                <p>High-density, short-pile construction for maximum liquid retention. Engineered specifically for safe car detailing and heavy-duty tasks.</p>
+            </div>
+        </div>
     </div>
 
     <footer>
