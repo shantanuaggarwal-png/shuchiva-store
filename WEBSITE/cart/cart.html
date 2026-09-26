@@ -394,25 +394,45 @@
 
                 const token = tokenData.token;
 
-                // 2. Launch Fastrr UI using Official SDK
-                if (window.HeadlessCheckout) {
-                    window.HeadlessCheckout.addToCart(event, token);
-                    
-                    // The script will automatically handle the UI overlay.
-                    // Listen for the postMessage response containing address/contact.
-                    const messageHandler = (msgEvent) => {
-                        // In many headless setups, they dispatch events to parent
-                        // We will log them and intercept address payload
-                        if (msgEvent.data && (msgEvent.data.type === 'sr-login-success' || msgEvent.data.type === 'address-selected')) {
-                            console.log("Fastrr Data Received:", msgEvent.data);
-                            handleFastrrAddressSuccess(msgEvent.data);
-                            window.removeEventListener('message', messageHandler);
+                // 2. Prepare Channel and Cart payloads
+                const channelData = {
+                    shop_name: "Shuchiva Essentials",
+                    shop_url: window.location.hostname || "shuchiva-store.onrender.com"
+                };
+                const encodedChannel = window.btoa(encodeURIComponent(JSON.stringify(channelData)));
+                const encodedCart = window.btoa(encodeURIComponent(JSON.stringify([]))); // "JTVCJTVE"
+
+                // 3. Construct Fastrr Application URL
+                const fastrrUrl = `https://fastrr-boost-ui.pickrr.com/?channel=${encodedChannel}&type=product&platform=CUSTOM&cart=${encodedCart}&customToken=${token}&customCheckoutToken=${token}&login=sr-login&themeColor=%234da8da`;
+
+                // 4. Open Fastrr Modal Overlay
+                const overlay = document.getElementById('fastrr-iframe-overlay');
+                const iframe = document.getElementById('fastrr-iframe');
+                const loader = document.getElementById('fastrr-loader');
+
+                if (loader) loader.style.display = 'flex';
+                if (iframe) iframe.src = fastrrUrl;
+                if (overlay) overlay.style.display = 'flex';
+
+                // Graceful fallback: wait up to 10 seconds for Fastrr
+                if (window._fastrrTimer) clearTimeout(window._fastrrTimer);
+                window._fastrrTimer = setTimeout(() => {
+                    const currentOverlay = document.getElementById('fastrr-iframe-overlay');
+                    if (currentOverlay && currentOverlay.style.display === 'flex') {
+                        closeFastrrModal();
+                        const errorBox = document.getElementById('modal-error-box');
+                        if (errorBox) {
+                            errorBox.textContent = "Fastrr login took too long. Please fill your delivery address below manually to continue.";
                         }
-                    };
-                    window.addEventListener('message', messageHandler);
-                } else {
-                    throw new Error("Fastrr Official SDK not loaded.");
-                }
+                        useNewAddress = true;
+                        const form = document.getElementById('new-address-form');
+                        if (form) form.classList.add('active');
+                        const toggleBtn = document.getElementById('toggle-new-addr-btn');
+                        if (toggleBtn) toggleBtn.textContent = "Use a saved address above";
+                        const nameField = document.getElementById('modal-name');
+                        if (nameField) nameField.focus();
+                    }
+                }, 10000);
 
             } catch (err) {
                 console.error("Fastrr Error:", err);
