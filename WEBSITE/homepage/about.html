@@ -49,6 +49,17 @@
 
     <footer>&copy; 2026 Shuchiva Essentials. A brand by Nand Lal Ram Charan Dass, Dehradun.</footer>
 
-    <script src="toolbar.js"></script>
+    <!-- APPLE-STYLE SCROLL ANIMATIONS (GSAP) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script>
+        gsap.from(".page-container > *, footer", {
+            y: 40,
+            opacity: 0,
+            duration: 0.8,
+            stagger: 0.15,
+            ease: "power3.out",
+            delay: 0.1
+        });
+    </script>
 </body>
 </html>

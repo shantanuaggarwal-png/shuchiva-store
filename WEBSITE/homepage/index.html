@@ -334,6 +334,24 @@
         <h2>Our Signature Collection</h2>
         <p>Engineered for quality with a highly effective blend of 80% Polyester and 20% Polyamide, ensuring exceptional durability and softness.</p>
         
+        <style>
+            .floating-product {
+                margin-bottom: 4rem;
+                perspective: 1000px;
+            }
+            .floating-product img {
+                max-width: 400px;
+                width: 100%;
+                border-radius: 16px;
+                box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+                border: 1px solid rgba(255,255,255,0.1);
+            }
+        </style>
+
+        <div class="floating-product">
+            <img class="animated-product-img" src="products/40x40 CORAL FLEECE 550 GSM/main-3pc.webp" alt="Premium Coral Fleece Cloths">
+        </div>
+        
         <div class="products-grid">
             <!-- Product 1 -->
             <div class="product-card">
@@ -437,6 +455,30 @@
             duration: 1,
             stagger: 0.2,
             ease: "back.out(1.2)" // Gives the cards a slight bounce
+        });
+
+        // 3. Continuous floating animation for the product image
+        gsap.to(".animated-product-img", {
+            y: -25,
+            rotationZ: 2,
+            duration: 4,
+            repeat: -1,
+            yoyo: true,
+            ease: "sine.inOut"
+        });
+
+        // 4. Fade in the product image as you scroll to it
+        gsap.from(".animated-product-img", {
+            scrollTrigger: {
+                trigger: ".floating-product",
+                start: "top 80%",
+                toggleActions: "play none none reverse"
+            },
+            scale: 0.85,
+            y: 50,
+            opacity: 0,
+            duration: 1.5,
+            ease: "power3.out"
         });
     </script>
 
