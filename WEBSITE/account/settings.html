@@ -225,15 +225,20 @@
             };
 
             try {
-                const res = await fetch('/api/user/addresses', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                const isEdit = !!window.editingAddressId;
+                const url = isEdit ? '/api/user/addresses/' + window.editingAddressId : '/api/user/addresses';
+                const method = isEdit ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
                     body: JSON.stringify(payload)
                 });
 
                 if (res.ok) {
-                    alert('Address saved successfully!');
-                    document.getElementById('address-form').reset();
+                    alert(isEdit ? 'Address updated successfully!' : 'Address saved successfully!');
+                    if (window.resetAddressForm) window.resetAddressForm();
+                    else document.getElementById('address-form').reset();
                     loadAddresses();
                 } else {
                     alert('Failed to save address.');
@@ -245,6 +250,23 @@
 
         // Load existing addresses on page load
         loadAddresses();
+
+        window.resetAddressForm = function() {
+            document.getElementById('address-form').reset();
+            window.editingAddressId = null;
+            
+            const h4s = document.querySelectorAll('h4');
+            h4s.forEach(h4 => { if(h4.textContent.includes('Address')) h4.textContent = 'Add New Address'; });
+            
+            const submitBtn = document.querySelector('#address-form button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.textContent = 'Save Address';
+                submitBtn.style.backgroundColor = '#4da8da';
+            }
+            
+            const cancelBtn = document.getElementById('cancel-edit-btn');
+            if(cancelBtn) cancelBtn.style.display = 'none';
+        };
         
         window.editingAddressId = null;
         window.editAddress = function(id) {
@@ -256,10 +278,33 @@
             document.getElementById('addr-city').value = addr.city;
             document.getElementById('addr-state').value = addr.state;
             document.getElementById('addr-pin').value = addr.pincode;
+            
             window.editingAddressId = id;
+            
+            const h4s = document.querySelectorAll('h4');
+            h4s.forEach(h4 => { if(h4.textContent.includes('Address')) h4.textContent = 'Edit Address'; });
+            
             const submitBtn = document.querySelector('#address-form button[type="submit"]');
-            submitBtn.textContent = 'Update Address';
-            submitBtn.style.backgroundColor = '#f39c12';
+            if (submitBtn) {
+                submitBtn.textContent = 'Update Address';
+                submitBtn.style.backgroundColor = '#f39c12';
+            }
+            
+            let cancelBtn = document.getElementById('cancel-edit-btn');
+            if(!cancelBtn) {
+                cancelBtn = document.createElement('button');
+                cancelBtn.id = 'cancel-edit-btn';
+                cancelBtn.type = 'button';
+                cancelBtn.textContent = 'Cancel Edit';
+                cancelBtn.className = 'save-btn';
+                cancelBtn.style.backgroundColor = '#6e7d91';
+                cancelBtn.style.marginLeft = '10px';
+                cancelBtn.onclick = window.resetAddressForm;
+                if (submitBtn && submitBtn.parentNode) submitBtn.parentNode.appendChild(cancelBtn);
+            } else {
+                cancelBtn.style.display = 'inline-block';
+            }
+            
             document.getElementById('address-form').scrollIntoView({behavior: 'smooth'});
         };
 
