@@ -185,6 +185,7 @@
             try {
                 const res = await fetch('/api/user/addresses', { headers: { 'Authorization': `Bearer ${token}` } });
                 const data = await res.json();
+                window.currentAddresses = data.addresses;
                 
                 const listDiv = document.getElementById('address-list');
                 if (data.addresses && data.addresses.length > 0) {
@@ -195,7 +196,8 @@
                             ${addr.city}, ${addr.state} - ${addr.pincode}<br>
                             Phone: ${addr.phone}
                             <div style="margin-top: 10px;">
-                                <button onclick="deleteAddress('${addr._id}')" style="background: #ff6b6b; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Delete Address</button>
+                                <button onclick="editAddress('${addr._id}')" style="background: #4da8da; color: #0d1117; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 10px; font-weight: bold;">Edit</button>
+                                  <button onclick="deleteAddress('${addr._id}')" style="background: #ff6b6b; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold;">Delete</button>
                             </div>
                         </div>
                     `).join('');
@@ -243,6 +245,24 @@
 
         // Load existing addresses on page load
         loadAddresses();
+        
+        window.editingAddressId = null;
+        window.editAddress = function(id) {
+            const addr = window.currentAddresses.find(a => a._id === id);
+            if(!addr) return;
+            document.getElementById('addr-name').value = addr.fullName;
+            document.getElementById('addr-phone').value = addr.phone;
+            document.getElementById('addr-street').value = addr.address;
+            document.getElementById('addr-city').value = addr.city;
+            document.getElementById('addr-state').value = addr.state;
+            document.getElementById('addr-pin').value = addr.pincode;
+            window.editingAddressId = id;
+            const submitBtn = document.querySelector('#address-form button[type="submit"]');
+            submitBtn.textContent = 'Update Address';
+            submitBtn.style.backgroundColor = '#f39c12';
+            document.getElementById('address-form').scrollIntoView({behavior: 'smooth'});
+        };
+
         window.deleteAddress = async function(id) {
             if(!confirm('Are you sure you want to delete this address?')) return;
             try {

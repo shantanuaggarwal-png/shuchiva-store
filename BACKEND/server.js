@@ -617,6 +617,44 @@ app.delete('/api/user/addresses/:id', authenticateToken, async (req, res) => {
     }
 });
 
+
+app.put('/api/user/addresses/:id', authenticateToken, async (req, res) => {
+    try {
+        const { fullName, phone, address, city, state, pincode } = req.body;
+        const user = await User.findById(req.user.userId);
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        const addrIndex = user.savedAddresses.findIndex(a => a._id.toString() === req.params.id);
+        if (addrIndex === -1) return res.status(404).json({ error: "Address not found" });
+
+        user.savedAddresses[addrIndex] = { ...user.savedAddresses[addrIndex].toObject(), fullName, phone, address, city, state, pincode };
+        await user.save();
+        
+        res.json({ message: "Address updated successfully", addresses: user.savedAddresses });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to update address" });
+    }
+});
+
+
+app.put('/api/user/addresses/:id', authenticateToken, async (req, res) => {
+    try {
+        const { fullName, phone, address, city, state, pincode } = req.body;
+        const user = await User.findById(req.user.userId);
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        const addrIndex = user.savedAddresses.findIndex(a => a._id.toString() === req.params.id);
+        if (addrIndex === -1) return res.status(404).json({ error: "Address not found" });
+
+        user.savedAddresses[addrIndex] = { ...user.savedAddresses[addrIndex].toObject(), fullName, phone, address, city, state, pincode };
+        await user.save();
+        
+        res.json({ message: "Address updated successfully", addresses: user.savedAddresses });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to update address" });
+    }
+});
+
 app.get('/api/user/loyalty', authenticateToken, async (req, res) => {
     try {
         const user = await User.findById(req.user.userId);
