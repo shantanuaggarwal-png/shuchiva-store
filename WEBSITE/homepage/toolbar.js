@@ -50,24 +50,54 @@ class SiteToolbar extends HTMLElement {
             .side-category a { text-decoration: none; font-size: 0.95rem; color: #a3b3c8; display: block; transition: 0.3s; }
             .side-category a:hover { color: #4da8da; }
             #open-sidebar:hover { color: #4da8da; }
+        
+            /* Sidebar CSS */
+            .sidenav { height: 100%; width: 0; position: fixed; z-index: 200; top: 0; left: 0; background-color: rgba(13, 17, 23, 0.98); backdrop-filter: blur(10px); overflow-x: hidden; transition: 0.3s; border-right: 1px solid rgba(255, 255, 255, 0.05); white-space: nowrap; text-align: left; }
+            .sidenav .closebtn { position: absolute; top: 15px; right: 25px; font-size: 36px; color: #a3b3c8; text-decoration: none; transition: 0.3s; line-height: 1; }
+            .sidenav .closebtn:hover { color: #fff; }
+            .side-heading { color:#a3b3c8; padding: 2rem 2rem 1rem 2rem; font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase; margin: 0; margin-top: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+            .side-category h4 { color: #fff; padding-left: 2rem; margin-bottom: 10px; font-size: 1.1rem; }
+            .side-category ul { list-style: none; padding-left: 3rem; margin: 0; line-height: 2.2; }
+            .side-category a { text-decoration: none; font-size: 0.95rem; color: #a3b3c8; display: block; transition: 0.3s; }
+            .side-category a:hover { color: #4da8da; }
+            #open-sidebar:hover { color: #4da8da; }
         </style>
 
+
         
+        <!-- Sidebar Overlay & Drawer -->
+        <div id="side-menu-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 199; backdrop-filter: blur(2px);"></div>
+        
+        <div id="side-menu" class="sidenav">
+            <a href="javascript:void(0)" class="closebtn" id="close-sidebar">&times;</a>
+            <h3 class="side-heading">Search by Categories</h3>
+            
+            <div class="side-category" style="margin-top: 1.5rem;">
+                <h4>Microfiber Range</h4>
+                <ul>
+                    <li><a href="${root}categories/subcategory.html?category=multipurpose">Multipurpose Cloths</a></li>
+                    <li><a href="${root}categories/subcategory.html?category=cleaningPurpose">Only Cleaning Purpose</a></li>
+                    <li><a href="${root}categories/subcategory.html?category=skinCare">Skin Care</a></li>
+                    <li><a href="${root}categories/subcategory.html?category=opticalCare">Optical Care</a></li>
+                    <li><a href="${root}categories/subcategory.html?category=automobileCleaning">Automobile Cleaning</a></li>
+                    <li><a href="${root}homepage/index.html#new-arrivals">New Arrivals</a></li>
+                </ul>
+            </div>
+
+            <div class="side-category" style="margin-top: 2rem;">
+                <h4>Cotton Towel Range</h4>
+                <ul>
+                    <li><a href="#" style="color: #6e7d91; cursor: default;">Upcoming...</a></li>
+                </ul>
+            </div>
+        </div>
+
         <nav>
-            <div class="logo"><a href="${root}homepage/index.html">Shuchiva Essentials</a></div>
+            <div style="display: flex; align-items: center;">
+                <span id="open-sidebar" style="font-size: 24px; cursor: pointer; color: white; margin-right: 20px; transition: color 0.3s;">&#9776;</span>
+                <div class="logo"><a href="${root}homepage/index.html">Shuchiva Essentials</a></div>
+            </div>
             <div class="nav-links">
-                
-                <div class="dropdown">
-                    <a href="#" class="dropbtn" style="text-decoration: none;">Microfiber Range &#9662;</a>
-                    <div class="dropdown-content">
-                        <a href="${root}categories/subcategory.html?category=multipurpose">Multipurpose Cloths</a>
-                        <a href="${root}categories/subcategory.html?category=cleaningPurpose">Only Cleaning Purpose</a>
-                        <a href="${root}categories/subcategory.html?category=skinCare">Skin Care</a>
-                        <a href="${root}categories/subcategory.html?category=opticalCare">Optical Care</a>
-                        <a href="${root}categories/subcategory.html?category=automobileCleaning">Automobile Cleaning</a>
-                        <a href="${root}homepage/index.html#new-arrivals">New Arrivals</a>
-                    </div>
-                </div>
                 
                <a href="${root}homepage/about.html">About Us</a>
                <a href="${root}homepage/contact.html">Contact Us</a>
@@ -94,6 +124,28 @@ class SiteToolbar extends HTMLElement {
             }
         }
         
+
+        // Sidebar functionality
+        const openBtn = this.querySelector('#open-sidebar');
+        const closeBtn = this.querySelector('#close-sidebar');
+        const sideMenu = this.querySelector('#side-menu');
+        const sideOverlay = this.querySelector('#side-menu-overlay');
+
+        if (openBtn) {
+            openBtn.addEventListener('click', () => {
+                sideMenu.style.width = '320px';
+                sideOverlay.style.display = 'block';
+            });
+        }
+        
+        const closeSideMenu = () => {
+            sideMenu.style.width = '0';
+            sideOverlay.style.display = 'none';
+        };
+
+        if (closeBtn) closeBtn.addEventListener('click', closeSideMenu);
+        if (sideOverlay) sideOverlay.addEventListener('click', closeSideMenu);
+
 
         // Sidebar functionality
         const openBtn = this.querySelector('#open-sidebar');
