@@ -39,7 +39,19 @@ class SiteToolbar extends HTMLElement {
             .dropdown-content a { color: white; padding: 12px 20px; text-decoration: none; display: block; margin-left: 0; font-size: 0.85rem; transition: background-color 0.3s ease, color 0.3s ease; }
             .dropdown-content a:hover { background-color: rgba(77, 168, 218, 0.15); color: #4da8da; }
             .dropdown:hover .dropdown-content { display: block; }
+        
+            /* Sidebar CSS */
+            .sidenav { height: 100%; width: 0; position: fixed; z-index: 200; top: 0; left: 0; background-color: rgba(13, 17, 23, 0.98); backdrop-filter: blur(10px); overflow-x: hidden; transition: 0.3s; border-right: 1px solid rgba(255, 255, 255, 0.05); white-space: nowrap; }
+            .sidenav .closebtn { position: absolute; top: 15px; right: 25px; font-size: 36px; color: #a3b3c8; text-decoration: none; transition: 0.3s; line-height: 1; }
+            .sidenav .closebtn:hover { color: #fff; }
+            .side-heading { color:#a3b3c8; padding: 2rem 2rem 1rem 2rem; font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase; margin: 0; margin-top: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+            .side-category h4 { color: #fff; padding-left: 2rem; margin-bottom: 10px; font-size: 1.1rem; }
+            .side-category ul { list-style: none; padding-left: 3rem; margin: 0; line-height: 2.2; }
+            .side-category a { text-decoration: none; font-size: 0.95rem; color: #a3b3c8; display: block; transition: 0.3s; }
+            .side-category a:hover { color: #4da8da; }
+            #open-sidebar:hover { color: #4da8da; }
         </style>
+
         
         <nav>
             <div class="logo"><a href="${root}homepage/index.html">Shuchiva Essentials</a></div>
@@ -82,6 +94,28 @@ class SiteToolbar extends HTMLElement {
             }
         }
         
+
+        // Sidebar functionality
+        const openBtn = this.querySelector('#open-sidebar');
+        const closeBtn = this.querySelector('#close-sidebar');
+        const sideMenu = this.querySelector('#side-menu');
+        const sideOverlay = this.querySelector('#side-menu-overlay');
+
+        if (openBtn) {
+            openBtn.addEventListener('click', () => {
+                sideMenu.style.width = '320px';
+                sideOverlay.style.display = 'block';
+            });
+        }
+        
+        const closeSideMenu = () => {
+            sideMenu.style.width = '0';
+            sideOverlay.style.display = 'none';
+        };
+
+        if (closeBtn) closeBtn.addEventListener('click', closeSideMenu);
+        if (sideOverlay) sideOverlay.addEventListener('click', closeSideMenu);
+
         // Initial fetch when page loads
         this.updateCartQuantity(token);
 
