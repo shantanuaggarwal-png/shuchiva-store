@@ -177,7 +177,11 @@
 
         // --- ADDRESS BOOK LOGIC ---
         async function loadAddresses() {
-            if (!token) return;
+            const listDiv = document.getElementById('address-list');
+            if(!token) {
+                if(listDiv) listDiv.innerHTML = 'Please log in to view your saved addresses.';
+                return;
+            }
             try {
                 const res = await fetch('/api/user/addresses', { headers: { 'Authorization': `Bearer ${token}` } });
                 const data = await res.json();
@@ -200,6 +204,8 @@
                 }
             } catch (error) {
                 console.error('Failed to fetch addresses:', error);
+                const listDiv = document.getElementById('address-list');
+                if(listDiv) listDiv.innerHTML = 'Could not load addresses. Is the backend server running?';
             }
         }
 
@@ -249,13 +255,20 @@
         };
 
         async function loadLoyalty() {
-            if(!token) return;
+            const box = document.getElementById('loyalty-box');
+            if(!token) {
+                if(box) box.innerHTML = 'Please log in to view your loyalty points.';
+                return;
+            }
             try {
                 const res = await fetch('/api/user/loyalty', { headers: { 'Authorization': Bearer  + token } });
                 const data = await res.json();
                 const box = document.getElementById('loyalty-box');
                 if(box) box.innerHTML = ?? Loyalty Points:  + (data.loyaltyPoints || 0) +  <span style="font-weight:normal; font-size: 0.9em; color:#a3b3c8;">(Earn 1 pt per ?10 spent)</span>;
-            } catch(e) {}
+            } catch(e) {
+                const box = document.getElementById('loyalty-box');
+                if(box) box.innerHTML = 'Could not load loyalty points. Is the backend server running?';
+            }
         }
         loadLoyalty();
     </script>
@@ -265,3 +278,5 @@
     <script src="../homepage/toolbar.js"></script>
 </body>
 </html>
+
+
