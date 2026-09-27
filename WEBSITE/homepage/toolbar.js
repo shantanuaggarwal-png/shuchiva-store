@@ -147,27 +147,6 @@ class SiteToolbar extends HTMLElement {
         if (sideOverlay) sideOverlay.addEventListener('click', closeSideMenu);
 
 
-        // Sidebar functionality
-        const openBtn = this.querySelector('#open-sidebar');
-        const closeBtn = this.querySelector('#close-sidebar');
-        const sideMenu = this.querySelector('#side-menu');
-        const sideOverlay = this.querySelector('#side-menu-overlay');
-
-        if (openBtn) {
-            openBtn.addEventListener('click', () => {
-                sideMenu.style.width = '320px';
-                sideOverlay.style.display = 'block';
-            });
-        }
-        
-        const closeSideMenu = () => {
-            sideMenu.style.width = '0';
-            sideOverlay.style.display = 'none';
-        };
-
-        if (closeBtn) closeBtn.addEventListener('click', closeSideMenu);
-        if (sideOverlay) sideOverlay.addEventListener('click', closeSideMenu);
-
         // Initial fetch when page loads
         this.updateCartQuantity(token);
 
