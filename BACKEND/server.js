@@ -442,6 +442,14 @@ app.post('/api/payment/verify', authenticateToken, async (req, res) => {
         }
 
         await newOrder.save();
+        // Loyalty points (1 point per 10 INR)
+        try {
+            let dbUser = await User.findById(newOrder.userId);
+            if (dbUser) {
+                dbUser.loyaltyPoints = (dbUser.loyaltyPoints || 0) + Math.floor(newOrder.totalAmount / 10);
+                await dbUser.save();
+            }
+        } catch(e) { console.error('Loyalty Error', e); }
 
         cart.items = [];
         await cart.save();
@@ -573,6 +581,14 @@ app.post('/api/webhook/razorpay', async (req, res) => {
                         }
 
                         await newOrder.save();
+        // Loyalty points (1 point per 10 INR)
+        try {
+            let dbUser = await User.findById(newOrder.userId);
+            if (dbUser) {
+                dbUser.loyaltyPoints = (dbUser.loyaltyPoints || 0) + Math.floor(newOrder.totalAmount / 10);
+                await dbUser.save();
+            }
+        } catch(e) { console.error('Loyalty Error', e); }
                         cart.items = [];
                         await cart.save();
                         console.log(`Webhook fallback order processed & saved for user ${userId}`);
@@ -588,6 +604,27 @@ app.post('/api/webhook/razorpay', async (req, res) => {
     }
 });
 
+// --- ADDED ROUTES (LOYALTY & ADDRESS DELETE) ---
+app.delete('/api/user/addresses/:id', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.userId);
+        if (!user) return res.status(404).json({ error: "User not found" });
+        user.savedAddresses = user.savedAddresses.filter(addr => addr._id.toString() !== req.params.id);
+        await user.save();
+        res.json({ message: "Address deleted successfully", addresses: user.savedAddresses });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to delete address" });
+    }
+});
+
+app.get('/api/user/loyalty', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.userId);
+        res.json({ loyaltyPoints: user ? (user.loyaltyPoints || 0) : 0 });
+    } catch (err) {
+        res.status(500).json({ error: "Failed to fetch loyalty points" });
+    }
+});
 // Fallback for unmatched /api routes to always return clean JSON
 app.use('/api', (req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });

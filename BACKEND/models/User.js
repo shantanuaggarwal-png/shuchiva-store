@@ -19,6 +19,10 @@ const userSchema = new mongoose.Schema({
     otpExpires: { 
         type: Date 
     },
+    loyaltyPoints: { 
+        type: Number, 
+        default: 0 
+    },
     // Array to store multiple saved delivery addresses for checkout
     savedAddresses: [{
         fullName: { type: String, required: true },

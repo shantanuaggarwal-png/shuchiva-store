@@ -53,8 +53,9 @@
                     <label>Registered Account (Email)</label>
                     <input type="text" id="user-email" disabled value="Secured via OTP">
                 </div>
-                <button type="submit" class="save-btn" id="save-btn">Save Changes</button>
+                                <button type="submit" class="save-btn" id="save-btn">Save Changes</button>
                 <div id="message-box"></div>
+                <div id="loyalty-box" style="margin-top: 1.5rem; padding: 1rem; background: rgba(77, 168, 218, 0.1); border: 1px solid #4da8da; border-radius: 6px; color: #4da8da; font-weight: 600;">Loading loyalty points...</div>
             </form>
         </div>
 
@@ -189,6 +190,9 @@
                             ${addr.address}<br>
                             ${addr.city}, ${addr.state} - ${addr.pincode}<br>
                             Phone: ${addr.phone}
+                            <div style="margin-top: 10px;">
+                                <button onclick="deleteAddress('${addr._id}')" style="background: #ff6b6b; color: #fff; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Delete Address</button>
+                            </div>
                         </div>
                     `).join('');
                 } else {
@@ -233,6 +237,27 @@
 
         // Load existing addresses on page load
         loadAddresses();
+        window.deleteAddress = async function(id) {
+            if(!confirm('Are you sure you want to delete this address?')) return;
+            try {
+                const res = await fetch('/api/user/addresses/' + id, { method: 'DELETE', headers: { 'Authorization': Bearer  + token } });
+                if(res.ok) loadAddresses();
+                else alert('Failed to delete address.');
+            } catch (e) {
+                console.error('Delete error', e);
+            }
+        };
+
+        async function loadLoyalty() {
+            if(!token) return;
+            try {
+                const res = await fetch('/api/user/loyalty', { headers: { 'Authorization': Bearer  + token } });
+                const data = await res.json();
+                const box = document.getElementById('loyalty-box');
+                if(box) box.innerHTML = ?? Loyalty Points:  + (data.loyaltyPoints || 0) +  <span style="font-weight:normal; font-size: 0.9em; color:#a3b3c8;">(Earn 1 pt per ?10 spent)</span>;
+            } catch(e) {}
+        }
+        loadLoyalty();
     </script>
     
     <!-- GOOGLE MAPS API KEY GOES HERE! -->
