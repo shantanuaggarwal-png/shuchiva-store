@@ -61,6 +61,15 @@ class SiteToolbar extends HTMLElement {
             .side-category a { text-decoration: none; font-size: 0.95rem; color: #a3b3c8; display: block; transition: 0.3s; }
             .side-category a:hover { color: #4da8da; }
             #open-sidebar:hover { color: #4da8da; }
+        
+            /* Help Widget CSS */
+            .help-widget-container { position: fixed; bottom: 20px; left: 20px; z-index: 999; font-family: 'Segoe UI', sans-serif; }
+            .help-btn { background-color: #4da8da; color: #0d1117; width: 50px; height: 50px; border-radius: 50%; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: transform 0.3s ease; animation: bounce 2s infinite; }
+            .help-btn:hover { transform: scale(1.1); animation: none; }
+            .help-popup { display: none; position: absolute; bottom: 65px; left: 0; background-color: rgba(13, 17, 23, 0.95); border: 1px solid rgba(255, 255, 255, 0.1); backdrop-filter: blur(5px); padding: 20px; border-radius: 8px; width: 280px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); color: #fff; }
+            .help-popup h4 { margin-top: 0; margin-bottom: 10px; color: #4da8da; }
+            .help-popup p { font-size: 0.85rem; margin-bottom: 15px; color: #a3b3c8; line-height: 1.4; }
+            @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } 60% { transform: translateY(-5px); } }
         </style>
 
 
@@ -110,6 +119,26 @@ class SiteToolbar extends HTMLElement {
                 ${authHTML}
             </div>
         </nav>
+
+        <!-- Help Widget -->
+        <div class="help-widget-container">
+            <div id="help-popup" class="help-popup">
+                <span id="close-help-popup" style="position: absolute; top: 10px; right: 10px; cursor: pointer; color: #fff; font-size: 1.2rem; line-height: 1;">&times;</span>
+                <h4>Need Help?</h4>
+                <p>Enter mobile and email details below and we will contact you in 24 hours.</p>
+                <form id="help-form">
+                    <input type="email" placeholder="Your Email" required style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border-radius:4px; border:1px solid rgba(255,255,255,0.2); background:#0d1117; color:#fff;" />
+                    <input type="tel" placeholder="Your Mobile" required style="width:100%; padding:8px; margin-bottom:10px; box-sizing:border-box; border-radius:4px; border:1px solid rgba(255,255,255,0.2); background:#0d1117; color:#fff;" />
+                    <button type="submit" style="width:100%; padding:8px; background:#4da8da; border:none; color:#0d1117; font-weight:bold; border-radius:4px; cursor:pointer;">Submit</button>
+                </form>
+                <div style="margin-top: 15px; text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px;">
+                    <a href="${root}homepage/contact.html" style="color:#4da8da; font-size: 0.85rem; text-decoration: none;">Or open Contact Page</a>
+                </div>
+            </div>
+            <div id="help-btn" class="help-btn">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+            </div>
+        </div>
         `;
 
         if (token) {
@@ -146,6 +175,30 @@ class SiteToolbar extends HTMLElement {
         if (closeBtn) closeBtn.addEventListener('click', closeSideMenu);
         if (sideOverlay) sideOverlay.addEventListener('click', closeSideMenu);
 
+        // Help Widget functionality
+        const helpBtn = this.querySelector('#help-btn');
+        const helpPopup = this.querySelector('#help-popup');
+        const closeHelpPopup = this.querySelector('#close-help-popup');
+        const helpForm = this.querySelector('#help-form');
+
+        if (helpBtn) {
+            helpBtn.addEventListener('click', () => {
+                helpPopup.style.display = helpPopup.style.display === 'block' ? 'none' : 'block';
+            });
+        }
+        if (closeHelpPopup) {
+            closeHelpPopup.addEventListener('click', () => {
+                helpPopup.style.display = 'none';
+            });
+        }
+        if (helpForm) {
+            helpForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                alert('Details submitted! We will contact you in 24 hours.');
+                helpForm.reset();
+                helpPopup.style.display = 'none';
+            });
+        }
 
         // Initial fetch when page loads
         this.updateCartQuantity(token);
