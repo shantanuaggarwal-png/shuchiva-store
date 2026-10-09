@@ -49,14 +49,25 @@ app.all('/api/shiprocket/access-token', async (req, res) => {
             return res.status(500).json({ error: "Fastrr API credentials not configured on the server." });
         }
 
+                function getNumericId(str) {
+            if (!str) return Math.floor(Math.random() * 900000000) + 100000000;
+            return parseInt(crypto.createHash('md5').update(str).digest('hex').substring(0, 12), 16) % 900000000 + 100000000;
+        }
+
+        const items = (req.body.items || []).map(item => ({
+            variant_id: getNumericId(item.id).toString(),
+            quantity: item.quantity || 1
+        }));
+
         const payload = {
-            address: true,
+            cart_data: { items: items.length > 0 ? items : [{ variant_id: "100000000", quantity: 1 }] },
+            redirect_url: req.body.redirect_url || "https://shuchiva-store.onrender.com/cart/cart.html",
             timestamp: new Date().toISOString()
         };
         const payloadString = JSON.stringify(payload);
         const signature = crypto.createHmac('sha256', apiSecret).update(payloadString).digest('base64');
 
-        const response = await axios.post('https://checkout-api.shiprocket.com/api/v1/access-token/login', payload, {
+        const response = await axios.post('https://checkout-api.shiprocket.com/api/v1/access-token/checkout', payload, {
             headers: {
                 'Content-Type': 'application/json',
                 'X-Api-Key': apiKey,
