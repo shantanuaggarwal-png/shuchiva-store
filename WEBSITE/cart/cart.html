@@ -173,6 +173,7 @@
                 ]);
 
                 const cartData = await parseJsonResponse(cartRes);
+                if (cartData && cartData.items) { globalCartData = cartData.items; }
                 const catalog = await parseJsonResponse(productRes);
 
                 if (!cartData.items || cartData.items.length === 0) {
@@ -280,6 +281,7 @@
         // --- DELIVERY ADDRESS & CHECKOUT LOGIC ---
         let savedUserAddresses = [];
         let useNewAddress = false;
+        let globalCartData = [];
 
         async function openAddressModal() {
             const token = localStorage.getItem('shuchiva_token');
@@ -387,8 +389,8 @@
                 // 1. Fetch Fastrr access token from our backend S2S endpoint
                 // We send the current cart items so backend can generate a Checkout token
                 const cartDataForFastrr = {
-                    items: cart.map(item => ({
-                        id: item.id,
+                    items: globalCartData.map(item => ({
+                        id: item.productId + '_' + item.size + '_' + item.pack,
                         quantity: item.quantity
                     }))
                 };
