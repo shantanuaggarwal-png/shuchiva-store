@@ -663,6 +663,9 @@ app.get('/api/user/loyalty', authenticateToken, async (req, res) => {
         res.status(500).json({ error: "Failed to fetch loyalty points" });
     }
 });
+const fastrrCatalogRoutes = require('./routes/fastrrCatalog');
+app.use('/api/fastrr/catalog', fastrrCatalogRoutes);
+
 // Fallback for unmatched /api routes to always return clean JSON
 app.use('/api', (req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
