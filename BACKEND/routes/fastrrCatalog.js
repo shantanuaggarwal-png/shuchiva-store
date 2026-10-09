@@ -1,6 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const Product = require('../models/Product');
+const crypto = require('crypto');
+
+// Generate a deterministic 9-digit numeric ID from a string
+function getNumericId(str) {
+    if (!str) return Math.floor(Math.random() * 900000000) + 100000000;
+    return parseInt(crypto.createHash('md5').update(str).digest('hex').substring(0, 12), 16) % 900000000 + 100000000;
+}
 
 // Helper to convert Shuchiva products to Fastrr/Shopify product schema
 function formatProduct(prod) {
@@ -12,16 +19,17 @@ function formatProduct(prod) {
         Object.keys(sizeObj.packs || {}).forEach(packKey => {
             const packObj = sizeObj.packs[packKey];
             const priceNum = packObj.price.replace(/[^0-9.]/g, ''); // Extract '242' from '₹242'
-            const variantId = `${prod.productId}_${sizeKey}_${packKey}`;
+            const variantIdStr = `${prod.productId}_${sizeKey}_${packKey}`;
+            const variantIdNumeric = getNumericId(variantIdStr);
             
             const imgUrl = `https://shuchiva-store.onrender.com/products/${prod.productId}/${sizeObj.folderName}/${packObj.mainImg}`;
             if (!firstImg) firstImg = imgUrl;
 
             variants.push({
-                id: variantId,
+                id: variantIdNumeric,
                 title: `${sizeObj.sizeText} - ${packKey}`,
                 price: parseFloat(priceNum).toFixed(2),
-                sku: variantId,
+                sku: variantIdStr, // Keep string for SKU, sku is allowed to be string
                 quantity: 999, // Infinite stock for now
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
@@ -36,7 +44,7 @@ function formatProduct(prod) {
     });
 
     return {
-        id: prod.productId,
+        id: getNumericId(prod.productId),
         title: prod.productName,
         body_html: `<p>${prod.catalogDescription}</p>`,
         vendor: "Shuchiva Essentials",
@@ -93,7 +101,7 @@ router.get('/collections', async (req, res) => {
         });
 
         const collections = Array.from(categorySet).map((cat, idx) => ({
-            id: cat,
+            id: getNumericId(cat),
             title: cat.toUpperCase(),
             handle: cat,
             created_at: new Date().toISOString(),
@@ -116,16 +124,20 @@ router.get('/collections', async (req, res) => {
 // 3. Fetch Products by Collection API
 router.get('/products-by-collection', async (req, res) => {
     try {
-        const collectionId = req.query.collection_id;
+        const collectionId = req.query.collection_id; // Will be numeric string
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 100;
 
-        let query = {};
+        let products = await Product.find().lean();
+        
         if (collectionId) {
-            query.categoryId = collectionId;
+            products = products.filter(p => {
+                if (!p.categoryId) return false;
+                // Check if any categoryId hashes to the numeric collectionId
+                return p.categoryId.some(cat => getNumericId(cat).toString() === collectionId);
+            });
         }
 
-        const products = await Product.find(query).lean();
         const fastrrProducts = products.map(formatProduct);
         
         const startIndex = (page - 1) * limit;
