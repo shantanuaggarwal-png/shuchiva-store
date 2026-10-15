@@ -54,10 +54,20 @@ app.all('/api/shiprocket/access-token', async (req, res) => {
             return parseInt(crypto.createHash('md5').update(str).digest('hex').substring(0, 12), 16) % 900000000 + 100000000;
         }
 
-        const items = (req.body.items || []).map(item => ({
-            variant_id: getNumericId(item.id).toString(),
-            quantity: item.quantity || 1
-        }));
+        const items = (req.body.items || []).map(item => {
+            const mapped = {
+                variant_id: getNumericId(item.id).toString(),
+                quantity: item.quantity || 1
+            };
+            if (item.catalog_data && item.catalog_data.price) {
+                mapped.catalog_data = {
+                    price: parseFloat(item.catalog_data.price),
+                    name: item.catalog_data.name || "Product",
+                    image_url: item.catalog_data.image_url || "https://shuchiva-store.onrender.com/homepage/favicon.ico"
+                };
+            }
+            return mapped;
+        });
 
         const payload = {
             cart_data: { items: items.length > 0 ? items : [{ variant_id: "100000000", quantity: 1 }] },
@@ -309,6 +319,19 @@ app.delete('/api/cart/remove', authenticateToken, async (req, res) => {
         res.status(200).json({ message: "Item removed successfully" });
     } catch (error) {
         res.status(500).json({ error: "Failed to remove item." });
+    }
+});
+
+app.post('/api/cart/clear', authenticateToken, async (req, res) => {
+    try {
+        const cart = await Cart.findOne({ userId: req.user.userId });
+        if (cart) {
+            cart.items = [];
+            await cart.save();
+        }
+        res.status(200).json({ message: "Cart cleared successfully" });
+    } catch (error) {
+        res.status(500).json({ error: "Failed to clear cart." });
     }
 });
 

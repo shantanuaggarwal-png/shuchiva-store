@@ -212,6 +212,7 @@
                 const cartData = await parseJsonResponse(cartRes);
                 if (cartData && cartData.items) { globalCartData = cartData.items; }
                 const catalog = await parseJsonResponse(productRes);
+                window.globalCatalog = catalog;
 
                 if (!cartData.items || cartData.items.length === 0) {
                     contentDiv.innerHTML = `<div class="empty-cart">Your cart is currently empty.</div>`;
@@ -436,10 +437,20 @@
                 // 1. Fetch Fastrr access token from our backend S2S endpoint
                 // We send the current cart items so backend can generate a Checkout token
                 const cartDataForFastrr = {
-                    items: globalCartData.map(item => ({
-                        id: item.productId + '_' + item.sizeKey + '_' + item.packKey,
-                        quantity: item.quantity
-                    }))
+                    items: globalCartData.map(item => {
+                        const productDetails = (window.globalCatalog && window.globalCatalog[item.productId]) || {};
+                        const name = productDetails.productName || 'Microfiber Cloth';
+                        const numericalPrice = parseFloat((item.price || '0').replace(/[^0-9.]/g, '')) || 0;
+                        return {
+                            id: item.productId + '_' + item.sizeKey + '_' + item.packKey,
+                            quantity: item.quantity,
+                            catalog_data: {
+                                price: numericalPrice,
+                                name: name + ' (' + item.sizeKey + ' - ' + item.packKey + ')',
+                                image_url: "https://shuchiva-store.onrender.com/homepage/favicon.ico"
+                            }
+                        };
+                    })
                 };
                 const tokenRes = await fetch('/api/shiprocket/access-token', { 
                     method: 'POST',
@@ -804,6 +815,18 @@
                     checkoutBtn.disabled = false;
                 }
             }
+        }
+
+        // Check if returning from Fastrr Checkout redirect
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('ost') === 'SUCCESS') {
+            const oid = urlParams.get('oid') || '';
+            const token = localStorage.getItem('shuchiva_token');
+            if (token) {
+                fetch('/api/cart/clear', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } }).catch(console.error);
+            }
+            alert(`🎉 Order placed successfully via Fastrr! ${oid ? 'Order ID: ' + oid : ''}`);
+            window.location.href = '../account/orders.html';
         }
 
         loadCart();
