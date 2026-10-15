@@ -478,6 +478,100 @@ app.post('/api/payment/verify', authenticateToken, async (req, res) => {
     }
 });
 
+
+// --- CASH ON DELIVERY (COD) ORDER CREATION ROUTE ---
+app.post('/api/order/create-cod', authenticateToken, async (req, res) => {
+    try {
+        const { delivery_address } = req.body;
+        const cart = await Cart.findOne({ userId: req.user.userId });
+        if (!cart || cart.items.length === 0) return res.status(400).json({ error: "Cart is empty" });
+
+        const user = await User.findById(req.user.userId);
+
+        let totalAmount = 0;
+        cart.items.forEach(item => {
+            const numericalPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
+            totalAmount += numericalPrice * item.quantity;
+        });
+
+        const shippingAddr = delivery_address || {};
+        if (!shippingAddr.address || !shippingAddr.pincode) {
+            return res.status(400).json({ error: "Complete delivery address is required." });
+        }
+
+        const codOrderId = `COD_${Date.now()}_${Math.floor(Math.random() * 9000 + 1000)}`;
+
+        const newOrder = new Order({
+            userId: req.user.userId,
+            items: cart.items,
+            paymentMethod: 'COD',
+            razorpayPaymentId: 'COD_PAYMENT_PENDING',
+            razorpayOrderId: codOrderId,
+            totalAmount: totalAmount,
+            shippingAddress: shippingAddr,
+            status: 'Processing',
+            shiprocketStatus: 'Pending'
+        });
+
+        // Automatically push COD order to Shiprocket
+        try {
+            const shiprocketRes = await shiprocket.createOrder({
+                orderId: codOrderId,
+                customerName: shippingAddr.fullName || user?.name || 'Customer',
+                phone: shippingAddr.phone || '9999999999',
+                email: user?.email || 'customer@shuchiva.com',
+                address: shippingAddr.address || 'Address',
+                city: shippingAddr.city || 'City',
+                state: shippingAddr.state || 'State',
+                pincode: shippingAddr.pincode || '248001',
+                items: cart.items,
+                totalAmount: totalAmount,
+                paymentMethod: 'COD'
+            });
+
+            if (shiprocketRes && shiprocketRes.shipment_id) {
+                newOrder.shiprocketShipmentId = String(shiprocketRes.shipment_id);
+                newOrder.shiprocketOrderId = String(shiprocketRes.order_id);
+                newOrder.awbCode = shiprocketRes.awb_code || '';
+                newOrder.courierName = shiprocketRes.courier_name || '';
+                newOrder.shiprocketStatus = 'Created';
+                console.log(`Shiprocket COD Order Created! Shipment ID: ${shiprocketRes.shipment_id}`);
+            } else {
+                newOrder.shiprocketStatus = 'Pending';
+            }
+        } catch (srErr) {
+            console.error('Shiprocket COD Order Creation Error:', srErr.response?.data || srErr.message);
+            newOrder.shiprocketStatus = 'Failed';
+            newOrder.shiprocketError = srErr.response?.data?.message || srErr.message;
+        }
+
+        await newOrder.save();
+
+        // Loyalty points (1 point per 10 INR)
+        try {
+            let dbUser = await User.findById(newOrder.userId);
+            if (dbUser) {
+                dbUser.loyaltyPoints = (dbUser.loyaltyPoints || 0) + Math.floor(newOrder.totalAmount / 10);
+                await dbUser.save();
+            }
+        } catch(e) { console.error('Loyalty Error', e); }
+
+        cart.items = [];
+        await cart.save();
+
+        res.json({
+            message: "COD order placed successfully!",
+            orderId: newOrder._id,
+            shipmentId: newOrder.shiprocketShipmentId,
+            shiprocketStatus: newOrder.shiprocketStatus
+        });
+
+    } catch (error) {
+        console.error('COD Order Error:', error);
+        res.status(500).json({ error: "Failed to place COD order." });
+    }
+});
+
 app.get('/api/orders', authenticateToken, async (req, res) => {
     try {
         const orders = await Order.find({ userId: req.user.userId }).sort({ createdAt: -1 });

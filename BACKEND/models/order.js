@@ -15,8 +15,9 @@ const orderSchema = new mongoose.Schema({
         required: true 
     },
     items: [orderItemSchema],
-    razorpayPaymentId: { type: String, required: true },
-    razorpayOrderId: { type: String, required: true },
+    paymentMethod: { type: String, default: 'Prepaid' }, // 'Prepaid' or 'COD'
+    razorpayPaymentId: { type: String },
+    razorpayOrderId: { type: String },
     totalAmount: { type: Number, required: true },
     
     // Delivery and Tracking Data

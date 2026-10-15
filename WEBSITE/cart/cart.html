@@ -73,6 +73,42 @@
         .modal-btn-cancel { flex: 1; padding: 12px; background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #a3b3c8; border-radius: 6px; cursor: pointer; font-weight: 600; }
         .modal-btn-pay { flex: 2; padding: 12px; background: #4da8da; border: none; color: #0d1117; border-radius: 6px; cursor: pointer; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
         .modal-btn-pay:hover { background: #3a8ebd; }
+        .payment-choice-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: #0d1117;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .payment-choice-card:hover, .payment-choice-card.selected {
+            border-color: #4da8da;
+            background: #1c2430;
+        }
+        .payment-choice-card input[type="radio"] {
+            accent-color: #4da8da;
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+        .payment-choice-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .payment-choice-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #fff;
+        }
+        .payment-choice-sub {
+            font-size: 0.8rem;
+            color: #a3b3c8;
+        }
         .modal-error { color: #ff6b6b; font-size: 0.9rem; margin-top: 10px; text-align: center; }
 
         /* Shiprocket Fastrr Express Login Styling */
@@ -593,6 +629,69 @@
             triggerRazorpayCheckout(shippingAddress);
         }
 
+        function selectPaymentMethod(mode) {
+            document.querySelectorAll('.payment-choice-card').forEach(el => el.classList.remove('selected'));
+            if (mode === 'cod') {
+                const codCard = document.getElementById('opt-card-cod');
+                if (codCard) codCard.classList.add('selected');
+                const radio = document.getElementById('pay-opt-cod');
+                if (radio) radio.checked = true;
+                const payBtn = document.getElementById('confirm-pay-btn');
+                if (payBtn) payBtn.textContent = "Place COD Order";
+            } else {
+                const onlineCard = document.getElementById('opt-card-online');
+                if (onlineCard) onlineCard.classList.add('selected');
+                const radio = document.getElementById('pay-opt-online');
+                if (radio) radio.checked = true;
+                const payBtn = document.getElementById('confirm-pay-btn');
+                if (payBtn) payBtn.textContent = "Proceed to Payment";
+            }
+        }
+
+        async function triggerCODCheckout(shippingAddress) {
+            const token = localStorage.getItem('shuchiva_token');
+            const checkoutBtn = document.querySelector('.checkout-btn');
+            if (checkoutBtn) {
+                checkoutBtn.textContent = "Placing COD Order...";
+                checkoutBtn.disabled = true;
+            }
+
+            try {
+                const res = await fetch('/api/order/create-cod', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ delivery_address: shippingAddress })
+                });
+
+                const data = await parseJsonResponse(res);
+
+                if (res.ok) {
+                    let msg = '🎉 COD Order placed successfully! You can pay cash upon delivery.';
+                    if (data.shipmentId) {
+                        msg += `\nShiprocket Shipment ID: ${data.shipmentId}`;
+                    }
+                    alert(msg);
+                    window.location.href = '../account/orders.html';
+                } else {
+                    alert(data.error || 'Failed to place COD order. Please try again.');
+                    if (checkoutBtn) {
+                        checkoutBtn.textContent = "Proceed to Checkout";
+                        checkoutBtn.disabled = false;
+                    }
+                }
+            } catch (err) {
+                console.error("COD Checkout Error:", err);
+                alert("Failed to connect to server. Please try again.");
+                if (checkoutBtn) {
+                    checkoutBtn.textContent = "Proceed to Checkout";
+                    checkoutBtn.disabled = false;
+                }
+            }
+        }
+
         // --- RAZORPAY NATIVE PAYMENT & SHIPROCKET FULFILLMENT ---
         async function triggerRazorpayCheckout(shippingAddress) {
             const token = localStorage.getItem('shuchiva_token');
@@ -764,6 +863,29 @@
                     <label for="modal-save-addr" style="margin: 0; color: #fff; cursor: pointer;">Save this address for future orders</label>
                 </div>
             </form>
+
+            <!-- Payment Method Selection -->
+            <div style="margin-top: 1.5rem; padding-top: 1.2rem; border-top: 1px solid rgba(255,255,255,0.1);">
+                <label style="display: block; font-size: 0.95rem; font-weight: 600; color: #fff; margin-bottom: 10px;">
+                    Select Payment Method:
+                </label>
+                
+                <label class="payment-choice-card selected" id="opt-card-online" onclick="selectPaymentMethod('online')">
+                    <input type="radio" name="payment_choice" id="pay-opt-online" value="online" checked>
+                    <div class="payment-choice-details">
+                        <span class="payment-choice-title">💳 Online Payment (Razorpay)</span>
+                        <span class="payment-choice-sub">UPI (GPay / PhonePe / Paytm), Debit/Credit Cards, Netbanking</span>
+                    </div>
+                </label>
+
+                <label class="payment-choice-card" id="opt-card-cod" onclick="selectPaymentMethod('cod')">
+                    <input type="radio" name="payment_choice" id="pay-opt-cod" value="cod">
+                    <div class="payment-choice-details">
+                        <span class="payment-choice-title">📦 Cash on Delivery (COD)</span>
+                        <span class="payment-choice-sub">Pay in cash when order is delivered to your doorstep</span>
+                    </div>
+                </label>
+            </div>
 
             <div class="modal-error" id="modal-error-box"></div>
 
