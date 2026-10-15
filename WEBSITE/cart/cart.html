@@ -6,8 +6,9 @@
     <title>Secure Checkout | Shuchiva Essentials</title>
     <!-- Razorpay Checkout Script -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-    <!-- Shiprocket Fastrr Headless SDK (correct SDK for custom/non-Shopify sites) -->
-    <script src="https://fastrr-boost-ui.shiprocket.in/fastrr-headless.js"></script>
+    <!-- Shiprocket Checkout SDK - exposes window.HeadlessCheckout with addToCart -->
+    <link rel="stylesheet" href="https://checkout-ui.shiprocket.com/assets/styles/shopify.css">
+    <script src="https://checkout-ui.shiprocket.com/assets/js/channels/shopify.js"></script>
     <style>
         body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, sans-serif; }
         .cart-wrapper { max-width: 1200px; margin: 4rem auto; padding: 0 2rem; }
@@ -418,18 +419,23 @@
                 const token = tokenData.token;
 
                 // 2. Launch Fastrr UI using Official SDK
-                if (window.HeadlessCheckout) {
-                    // Per Shiprocket SRC Custom Integration spec, use buyNow() for custom/non-Shopify sites
+                if (window.HeadlessCheckout && typeof window.HeadlessCheckout.addToCart === 'function') {
+                    // addToCart(event, token, config, callback) - correct method for custom integration
+                    // The SDK opens the Fastrr UI. When user completes OTP + address selection,
+                    // it calls window.srCustomCheckoutCallBackFn with the result payload.
                     const fastrrConfig = {
-                        amount: cartTotalForFastrr(),
-                        themecolor: '4da8da'
+                        fallbackUrl: window.location.href
                     };
-                    window.HeadlessCheckout.buyNow(event, token, fastrrConfig, function(payload) {
-                        console.log('Fastrr buyNow callback payload:', payload);
+                    window.HeadlessCheckout.addToCart(event, token, fastrrConfig, function(payload) {
+                        console.log('Fastrr addToCart callback payload:', payload);
                         handleFastrrAddressSuccess(payload);
                     });
+                } else if (window.HeadlessCheckout) {
+                    console.warn('HeadlessCheckout loaded but addToCart missing - check SDK version');
+                    // Log available methods to help debug
+                    console.log('HeadlessCheckout methods:', Object.keys(window.HeadlessCheckout));
                 } else {
-                    throw new Error('Fastrr SDK (HeadlessCheckout) not loaded. Please refresh the page.');
+                    throw new Error('Fastrr SDK (HeadlessCheckout) not loaded. Please refresh the page and try again.');
                 }
 
             } catch (err) {
@@ -501,25 +507,29 @@
         }
 
         // Global message listener for Fastrr iframe events
+        // Global Fastrr postMessage listener - handles all SDK → parent communication
         window.addEventListener('message', function (event) {
             const data = event.data;
             if (!data) return;
 
-            // When Fastrr UI finishes rendering, hide our preloader
+            // Fastrr UI finished rendering (hide any custom pre-loaders)
             if (data.trigger === 'hide-pre-loader') {
                 const loader = document.getElementById('fastrr-loader');
                 if (loader) loader.style.display = 'none';
             }
 
-            // When user closes Fastrr
+            // User closed the Fastrr modal
             if (data.trigger === 'headless-close') {
                 closeFastrrModal();
             }
 
-            // When Fastrr OTP & Address retrieval completes
-            if (data.trigger === 'headless-custom-complete' || data.trigger === 'headless-complete') {
+            // Address/OTP flow completed successfully - these are the correct trigger names
+            // from the SDK source: headless-custom-complete fires for custom integration type
+            if (data.trigger === 'headless-custom-complete' || 
+                data.trigger === 'headless-complete' ||
+                data.trigger === 'sr-headless-complete') {
                 closeFastrrModal();
-                handleFastrrAddressSuccess(data.data);
+                handleFastrrAddressSuccess(data.data || data);
             }
         });
 
