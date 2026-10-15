@@ -6,8 +6,8 @@
     <title>Secure Checkout | Shuchiva Essentials</title>
     <!-- Razorpay Checkout Script -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-    <link rel="stylesheet" href="https://checkout-ui.shiprocket.com/assets/styles/shopify.css">
-    <script src="https://checkout-ui.shiprocket.com/assets/js/channels/shopify.js"></script>
+    <!-- Shiprocket Fastrr Headless SDK (correct SDK for custom/non-Shopify sites) -->
+    <script src="https://fastrr-boost-ui.shiprocket.in/fastrr-headless.js"></script>
     <style>
         body, html { margin: 0; padding: 0; background-color: #0d1117; color: #ffffff; font-family: 'Segoe UI', Roboto, sans-serif; }
         .cart-wrapper { max-width: 1200px; margin: 4rem auto; padding: 0 2rem; }
@@ -369,7 +369,17 @@
             }
         }
 
-        // --- SHIPROCKET FASTRR 1-CLICK OTP LOGIN ---
+        // Helper: returns cart total in paise (Fastrr amount field)
+        function cartTotalForFastrr() {
+            let total = 0;
+            globalCartData.forEach(item => {
+                const price = parseInt((item.price || '0').replace(/[^0-9]/g, ''), 10) || 0;
+                total += price * (item.quantity || 1);
+            });
+            return total * 100; // in paise
+        }
+
+                // --- SHIPROCKET FASTRR 1-CLICK OTP LOGIN ---
         async function triggerFastrrLogin(event) {
             if (event) {
                 event.preventDefault();
@@ -390,7 +400,7 @@
                 // We send the current cart items so backend can generate a Checkout token
                 const cartDataForFastrr = {
                     items: globalCartData.map(item => ({
-                        id: item.productId + '_' + item.size + '_' + item.pack,
+                        id: item.productId + '_' + item.sizeKey + '_' + item.packKey,
                         quantity: item.quantity
                     }))
                 };
@@ -409,19 +419,17 @@
 
                 // 2. Launch Fastrr UI using Official SDK
                 if (window.HeadlessCheckout) {
-                    window.HeadlessCheckout.addToCart(event, token);
-                    
-                    // The script will automatically handle the UI overlay.
-                    const messageHandler = (msgEvent) => {
-                        if (msgEvent.data && (msgEvent.data.type === 'sr-login-success' || msgEvent.data.type === 'address-selected')) {
-                            console.log("Fastrr Data Received:", msgEvent.data);
-                            handleFastrrAddressSuccess(msgEvent.data);
-                            window.removeEventListener('message', messageHandler);
-                        }
+                    // Per Shiprocket SRC Custom Integration spec, use buyNow() for custom/non-Shopify sites
+                    const fastrrConfig = {
+                        amount: cartTotalForFastrr(),
+                        themecolor: '4da8da'
                     };
-                    window.addEventListener('message', messageHandler);
+                    window.HeadlessCheckout.buyNow(event, token, fastrrConfig, function(payload) {
+                        console.log('Fastrr buyNow callback payload:', payload);
+                        handleFastrrAddressSuccess(payload);
+                    });
                 } else {
-                    throw new Error("Fastrr Official SDK not loaded.");
+                    throw new Error('Fastrr SDK (HeadlessCheckout) not loaded. Please refresh the page.');
                 }
 
             } catch (err) {
