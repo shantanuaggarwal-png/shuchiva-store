@@ -273,7 +273,10 @@
                             <span>Total</span>
                             <span>₹${totalAmount}</span>
                         </div>
-                        <button class="checkout-btn" onclick="openAddressModal()">Proceed to Checkout</button>
+                        <button class="checkout-btn" id="main-checkout-btn" onclick="triggerFastrrLogin(event)">Proceed to Checkout ⚡</button>
+                        <div style="text-align: center; margin-top: 10px; font-size: 0.85rem; color: #4da8da; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                            <span>⚡ Express Checkout (Fastrr) &bull; Mobile OTP &bull; Auto-fill Address</span>
+                        </div>
                     </div>
                 `;
 
@@ -423,7 +426,7 @@
                 event.preventDefault();
                 event.stopPropagation();
             }
-            const btn = document.getElementById('fastrr-trigger-btn');
+            const btn = document.getElementById('main-checkout-btn') || document.querySelector('.checkout-btn');
             const originalHTML = btn ? btn.innerHTML : '⚡ OTP Login';
             const errorBox = document.getElementById('modal-error-box');
             if (errorBox) errorBox.textContent = '';
@@ -831,98 +834,6 @@
 
         loadCart();
     </script>
-
-    <!-- Delivery Address Modal -->
-    <div class="modal-overlay" id="address-modal">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h2>Delivery Address</h2>
-                <button class="modal-close" onclick="closeAddressModal()">&times;</button>
-            </div>
-            
-            <!-- Fastrr 1-Click Mobile Login Box -->
-            <div class="fastrr-login-box">
-                <div class="fastrr-info">
-                    <div class="fastrr-info-title">
-                        <span>⚡ Express Checkout (Fastrr)</span>
-                    </div>
-                    <div class="fastrr-info-subtitle">Auto-fill saved address using Mobile OTP</div>
-                </div>
-                <button type="button" class="fastrr-btn" id="fastrr-trigger-btn" onclick="triggerFastrrLogin(event)">
-                    <span>⚡ OTP Login</span>
-                </button>
-            </div>
-
-            <div id="saved-addresses-list">
-                <!-- Dynamically loaded saved addresses -->
-            </div>
-
-            <button type="button" class="new-addr-btn" id="toggle-new-addr-btn" onclick="toggleNewAddressForm()">+ Add New Delivery Address</button>
-
-            <form id="new-address-form" class="modal-form" onsubmit="event.preventDefault(); confirmAddressAndPay();">
-                <div class="form-row">
-                    <label>Full Name *</label>
-                    <input type="text" id="modal-name" placeholder="Receiver's full name" required>
-                </div>
-                <div class="form-row">
-                    <label>Phone Number (10 digits) *</label>
-                    <input type="tel" id="modal-phone" maxlength="10" placeholder="e.g. 9876543210" required>
-                </div>
-                <div class="form-row">
-                    <label>Street Address / Flat / Building *</label>
-                    <input type="text" id="modal-street" placeholder="House/Flat No., Street, Landmark" required>
-                </div>
-                <div class="form-grid-2">
-                    <div class="form-row">
-                        <label>City *</label>
-                        <input type="text" id="modal-city" placeholder="City" required>
-                    </div>
-                    <div class="form-row">
-                        <label>Pincode *</label>
-                        <input type="text" id="modal-pin" maxlength="6" placeholder="6-digit PIN" required>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <label>State *</label>
-                    <input type="text" id="modal-state" placeholder="State" required>
-                </div>
-                <div class="form-row" style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
-                    <input type="checkbox" id="modal-save-addr" checked style="width: auto;">
-                    <label for="modal-save-addr" style="margin: 0; color: #fff; cursor: pointer;">Save this address for future orders</label>
-                </div>
-            </form>
-
-            <!-- Payment Method Selection -->
-            <div style="margin-top: 1.5rem; padding-top: 1.2rem; border-top: 1px solid rgba(255,255,255,0.1);">
-                <label style="display: block; font-size: 0.95rem; font-weight: 600; color: #fff; margin-bottom: 10px;">
-                    Select Payment Method:
-                </label>
-                
-                <label class="payment-choice-card selected" id="opt-card-online" onclick="selectPaymentMethod('online')">
-                    <input type="radio" name="payment_choice" id="pay-opt-online" value="online" checked>
-                    <div class="payment-choice-details">
-                        <span class="payment-choice-title">💳 Online Payment (Razorpay)</span>
-                        <span class="payment-choice-sub">UPI (GPay / PhonePe / Paytm), Debit/Credit Cards, Netbanking</span>
-                    </div>
-                </label>
-
-                <label class="payment-choice-card" id="opt-card-cod" onclick="selectPaymentMethod('cod')">
-                    <input type="radio" name="payment_choice" id="pay-opt-cod" value="cod">
-                    <div class="payment-choice-details">
-                        <span class="payment-choice-title">📦 Cash on Delivery (COD)</span>
-                        <span class="payment-choice-sub">Pay in cash when order is delivered to your doorstep</span>
-                    </div>
-                </label>
-            </div>
-
-            <div class="modal-error" id="modal-error-box"></div>
-
-            <div class="modal-actions">
-                <button type="button" class="modal-btn-cancel" onclick="closeAddressModal()">Cancel</button>
-                <button type="button" class="modal-btn-pay" id="confirm-pay-btn" onclick="confirmAddressAndPay()">Proceed to Payment</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Dedicated Shiprocket Fastrr Express Checkout Modal -->
     <div id="fastrr-iframe-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 999999; align-items: center; justify-content: center;">

@@ -794,6 +794,75 @@ app.get('/api/user/loyalty', authenticateToken, async (req, res) => {
 const fastrrCatalogRoutes = require('./routes/fastrrCatalog');
 app.use('/api/fastrr/catalog', fastrrCatalogRoutes);
 
+// --- SHIPROCKET FASTRR ORDER WEBHOOK ---
+app.post(['/api/fastrr/order', '/api/fastrr/webhook'], async (req, res) => {
+    try {
+        console.log("=== FASTRR ORDER WEBHOOK RECEIVED ===");
+        const payload = req.body || {};
+        console.log("Fastrr Webhook Payload:", JSON.stringify(payload));
+
+        const orderId = payload.order_id || payload.fastrr_order_id || ('FASTRR_' + Date.now());
+        const shippingAddress = payload.shipping_address || {};
+        const paymentType = (payload.payment_type || '').toUpperCase() === 'COD' ? 'COD' : 'Prepaid';
+        const totalAmount = parseFloat(payload.total_amount_payable || payload.subtotal_price || 0);
+
+        // Find or create customer
+        const phone = (shippingAddress.phone || payload.phone || '').toString().replace(/[^0-9]/g, '');
+        const email = shippingAddress.email || payload.email || (phone ? `${phone}@customer.shuchiva.in` : 'guest@shuchiva.in');
+        const name = `${shippingAddress.first_name || ''} ${shippingAddress.last_name || ''}`.trim() || 'Customer';
+
+        let user = null;
+        if (phone) {
+            user = await User.findOne({ $or: [{ phone: phone.slice(-10) }, { email }] });
+        }
+        if (!user && phone) {
+            user = new User({
+                name,
+                phone: phone.slice(-10),
+                email,
+                password: crypto.randomBytes(8).toString('hex')
+            });
+            await user.save();
+        }
+
+        const items = (payload.cart_data?.items || []).map(it => ({
+            productId: it.variant_id || 'product',
+            sizeKey: 'Standard',
+            packKey: '1pc',
+            quantity: it.quantity || 1,
+            price: `₹${it.catalog_data?.price || 0}`
+        }));
+
+        const newOrder = new Order({
+            userId: user ? user._id : new mongoose.Types.ObjectId(),
+            items: items.length > 0 ? items : [{ productId: 'fastrr_item', sizeKey: 'Standard', packKey: '1pc', quantity: 1, price: `₹${totalAmount}` }],
+            paymentMethod: paymentType,
+            razorpayPaymentId: payload.payments?.[0]?.txn_id || payload.payments?.[0]?.pg_transaction_id || '',
+            razorpayOrderId: payload.payments?.[0]?.pg_transaction_id || orderId || '',
+            totalAmount,
+            shippingAddress: {
+                fullName: name,
+                phone: phone.slice(-10),
+                address: `${shippingAddress.line1 || ''} ${shippingAddress.line2 || ''}`.trim() || 'India',
+                city: shippingAddress.city || '',
+                state: shippingAddress.state || '',
+                pincode: shippingAddress.pincode || ''
+            },
+            shiprocketOrderId: orderId,
+            status: 'Processing'
+        });
+
+        await newOrder.save();
+        console.log(`Order #${orderId} created in MongoDB via Fastrr webhook for ${name} (${phone})`);
+
+        return res.status(200).json({ status: "success", order_id: orderId });
+    } catch (err) {
+        console.error("Fastrr Webhook Error:", err);
+        return res.status(200).json({ status: "error", message: err.message });
+    }
+});
+
+
 // Fallback for unmatched /api routes to always return clean JSON
 app.use('/api', (req, res) => {
     res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.originalUrl}` });
